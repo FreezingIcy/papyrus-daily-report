@@ -1,0 +1,1638 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JANUS://TERMINAL</title>
+
+<!-- 🔑 canonical fb-boot (Athenaeum contract §2) — absolute URL เพราะอยู่คนละ repo กับ portal
+     ตั้งค่า Firebase + login ให้อัตโนมัติ → STORE adapter ด้านล่างรับผ่าน window.__PAPYRUS_FB -->
+<script type="module" src="https://freezingicy.github.io/Athenaeum-Archive/fb-boot.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ===== THEME TOKENS =====
+   .theme-normal = Paper (default)  ·  .theme-dark = Graphite
+   Theme is scoped to the .janus wrapper — nothing outside the widget is touched.
+   ======================== */
+:root{
+  --mono:'IBM Plex Mono',monospace; --thai:'IBM Plex Sans Thai',sans-serif;
+}
+body.theme-normal{
+  --bg:#F4F3EF; --panel:#EAE8E2; --line:#D5D2C8; --line-hi:#BEBAAD;
+  --amber:#B57614; --amber-dim:#9A7526; --amber-wash:rgba(181,118,20,.10);
+  --txt:#23262E; --txt-2:#5A5F6D; --txt-3:#8C919E;
+  --pos:#12855C; --neg:#C2352F; --neu:#6B707D; --cyan:#1E7FA0;
+}
+body.theme-dark{
+  --bg:#20242C; --panel:#282D37; --line:#39404C; --line-hi:#49515F;
+  --amber:#F5A623; --amber-dim:#A87B2A; --amber-wash:rgba(245,166,35,.07);
+  --txt:#E0E4EC; --txt-2:#9AA1B0; --txt-3:#717886;
+  --pos:#3DDC97; --neg:#FF5C5C; --neu:#7A8099; --cyan:#4EC9E8;
+}
+/* theme toggle */
+/* theme icon button (sun/moon) */
+.theme-btn{background:var(--panel);border:1px solid var(--line);border-radius:7px;width:32px;height:32px;
+  cursor:pointer;display:inline-flex;align-items:center;justify-content:center;color:var(--txt-2);transition:.15s;padding:0}
+.theme-btn:hover{border-color:var(--amber-dim);color:var(--amber)}
+.theme-btn:focus-visible{outline:2px solid var(--amber);outline-offset:1px}
+.theme-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.theme-btn .moon{display:none}
+body.theme-dark .theme-btn .sun{display:none}
+body.theme-dark .theme-btn .moon{display:block}
+/* tz dropdown */
+.tzsel{font-family:var(--mono);font-size:9.5px;letter-spacing:.5px;font-weight:600;background:var(--panel);
+  color:var(--amber);border:1px solid var(--line);border-radius:5px;padding:4px 22px 4px 9px;cursor:pointer;
+  appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 6px center}
+.tzsel:hover{border-color:var(--amber-dim)}
+.tzsel:focus-visible{outline:2px solid var(--amber);outline-offset:-2px}
+.tzlabel{font-family:var(--mono);font-size:9px;color:var(--txt-3);letter-spacing:1px;margin-right:5px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{margin:0}
+.janus{background:var(--bg);color:var(--txt);font-family:var(--mono);font-size:12.5px;line-height:1.6;
+  min-height:100vh;padding-bottom:40px;transition:background .18s ease,color .18s ease}
+@media(prefers-reduced-motion:reduce){.janus{transition:none}}
+.thai{font-family:var(--thai)}
+.page{max-width:640px;margin:0 auto;padding:0 12px}
+.docbar{max-width:640px;margin:0 auto;padding:12px 12px 0;display:flex;gap:8px;align-items:center}
+
+/* topbar */
+.topbar{border-bottom:1px solid var(--amber-dim);padding:10px 0 8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px}
+@keyframes blink{50%{opacity:.2}}
+@media(prefers-reduced-motion:reduce){.sys-title .sysname::before{animation:none}}
+.topbar .meta{color:var(--txt-3);font-size:10.5px;text-align:right}
+/* editable doc title in topbar */
+.sys-title{color:var(--amber);font-weight:600;letter-spacing:1px;font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.sys-title .sysname::before{content:"\25AE ";animation:blink 1.4s steps(1) infinite;color:var(--amber)}
+.sys-title .sep{color:var(--txt-3);font-weight:400}
+.sys-title .doc{color:var(--txt);font-weight:500;letter-spacing:.5px}
+.sys-title .rn{background:transparent;border:none;color:var(--txt-3);cursor:pointer;font-size:12px;padding:1px 4px;border-radius:4px;line-height:1}
+.sys-title .rn:hover{color:var(--amber);background:var(--amber-wash)}
+.sys-title-input{font-family:var(--mono);font-size:13px;font-weight:500;background:var(--panel);color:var(--txt);border:1px solid var(--amber);border-radius:4px;padding:1px 7px;min-width:130px;outline:none;letter-spacing:.5px}
+.tb-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:0 0 auto}
+.tb-meta{text-align:right;line-height:1.5}
+.tb-meta .id{font-size:10px;color:var(--txt-2);white-space:nowrap}
+.tb-meta .verline{font-size:9px;color:var(--txt-3);letter-spacing:.3px;margin-top:2px;white-space:nowrap}
+.tb-meta .verline .lbl{opacity:.7}
+.tb-meta .tzwrap{margin-top:6px}
+/* editor note card (user note · ไม่ยุ่ง contract/prompt) */
+.enote{border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:8px;padding:10px 12px;margin-bottom:14px;background:var(--panel)}
+.enote .eh{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:5px}
+.enote .eh .et{color:var(--cyan);font-size:10px;letter-spacing:2px;font-weight:600}
+.enote .eh button{background:transparent;border:1px solid var(--line);border-radius:5px;color:var(--txt-3);
+  font-family:var(--mono);font-size:9px;letter-spacing:.5px;padding:3px 9px;cursor:pointer}
+.enote .eh button:hover{border-color:var(--cyan);color:var(--cyan)}
+.enote .ebody{font-family:var(--thai);font-size:12.5px;color:var(--txt-2);line-height:1.65;white-space:pre-wrap;word-break:break-word}
+.enote .ebody.empty{color:var(--txt-3);opacity:.6;font-style:italic}
+.enote textarea{width:100%;font-family:var(--thai);font-size:12.5px;color:var(--txt);background:var(--bg);
+  border:1px solid var(--amber);border-radius:6px;padding:8px 10px;line-height:1.6;resize:vertical;min-height:70px;outline:none}
+.enote .eact{display:flex;gap:8px;margin-top:7px}
+.enote .eact button{font-family:var(--mono);font-size:9px;letter-spacing:.5px;padding:4px 12px;border-radius:5px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--txt-3)}
+.enote .eact .save{border-color:var(--amber);color:var(--amber)}
+.enote .eact .save:hover{background:var(--amber-wash)}
+
+/* status line */
+/* header status · 3 การ์ด · REGIME มี accent bar ซ้าย (เหมือน cardlist) */
+/* ── REGIME CARD · แถบไล่สี + หมุด ────────────────────────────
+   palette: Risk-Off=ฟ้า · Defensive=เขียว · Mixed=เหลือง · Risk-On=แดง
+   ลำดับสเกล (ซ้าย→ขวา): Risk-Off → Defensive → Mixed → Risk-On          */
+.status{margin:12px 0 14px}
+.status .rgcard{position:relative;border:1px solid var(--line);border-radius:8px;
+  padding:13px 15px 13px 17px;background:var(--panel);overflow:hidden}
+.status .rgcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--line-hi)}
+.status .rgcard.rg-off::before{background:var(--cyan)}
+.status .rgcard.rg-def::before{background:var(--pos)}
+.status .rgcard.rg-mix::before{background:var(--amber)}
+.status .rgcard.rg-on::before {background:var(--neg)}
+.status .rgcard.rg-off{border-color:var(--cyan)}
+.status .rgcard.rg-def{border-color:var(--pos)}
+.status .rgcard.rg-mix{border-color:var(--amber-dim)}
+.status .rgcard.rg-on {border-color:var(--neg)}
+.status .rgtop{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.status .k{font-size:8.5px;color:var(--txt-3);letter-spacing:1.4px;line-height:1.35}
+.status .v{font-size:28px;font-weight:700;letter-spacing:-.7px;line-height:1.05;margin-top:1px}
+.status .rgsub{font-family:var(--thai);font-size:9px;color:var(--txt-3);margin-top:3px}
+.status .cvbox{text-align:right;min-width:0}
+.status .cvbox .cvv{font-size:12.5px;font-weight:600;color:var(--txt-2);margin-top:2px;white-space:nowrap}
+.status .cvdesc{font-family:var(--thai);font-size:8.5px;color:var(--txt-3);margin-top:3px;max-width:150px;margin-left:auto;line-height:1.4}
+/* แถบสเกล + หมุด */
+.status .track{margin-top:13px;position:relative;height:5px;border-radius:3px;
+  background:linear-gradient(90deg,var(--cyan),var(--pos),var(--amber),var(--neg))}
+.status .track .pin{position:absolute;top:50%;width:11px;height:11px;border-radius:50%;
+  transform:translate(-50%,-50%);border:2px solid var(--panel);box-shadow:0 0 0 1px var(--line-hi)}
+.status .pin.rg-off{background:var(--cyan)} .status .pin.rg-def{background:var(--pos)}
+.status .pin.rg-mix{background:var(--amber)} .status .pin.rg-on{background:var(--neg)}
+.status .pin.rg-na{background:var(--txt-3)}
+.status .ticks{display:flex;justify-content:space-between;margin-top:6px}
+.status .ticks span{font-size:7.5px;letter-spacing:.5px;color:var(--txt-3);flex:1;text-align:center}
+.status .ticks span:first-child{text-align:left} .status .ticks span:last-child{text-align:right}
+.status .ticks span.act{color:var(--txt);font-weight:700}
+/* กล่องคำอธิบาย + all-weather note */
+.status .rgdef{margin-top:11px;padding-top:9px;border-top:1px solid var(--line);
+  font-family:var(--thai);font-size:9.5px;color:var(--txt-3);line-height:1.6}
+.status .rgdef .dt{font-family:var(--mono);font-size:8px;letter-spacing:1.3px;color:var(--txt-2);margin-bottom:3px}
+.status .rgdef .dt+.dt{margin-top:8px}
+.status .rgdef ul{list-style:none;margin:0;padding:0}
+.status .rgdef li{display:flex;gap:6px;align-items:baseline}
+.status .rgdef li b{font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.4px;
+  flex:0 0 62px;white-space:nowrap}
+.status .rgdef li.m-off b{color:var(--cyan)} .status .rgdef li.m-def b{color:var(--pos)}
+.status .rgdef li.m-mix b{color:var(--amber)} .status .rgdef li.m-on b{color:var(--neg)}
+.status .rgdef .hv{font-size:8.5px;opacity:.65;margin-top:4px;padding-left:2px}
+.status .rgdef .up{color:var(--pos);opacity:.6;font-weight:500}
+.status .rgdef .dn{color:var(--neg);opacity:.6;font-weight:500}
+.status .rgdef .pt{color:var(--cyan);opacity:.6;font-weight:500}
+.status .awnote{font-family:var(--thai);font-size:8.5px;color:var(--txt-3);opacity:.55;
+  margin-top:9px;padding-top:7px;border-top:1px dashed var(--line)}
+.v.warn{color:var(--amber)} .v.cy{color:var(--cyan)}
+/* ── regime palette · ใช้ร่วมกับ chip/แถบ ในหน้า list ── */
+.v.rg-off{color:var(--cyan)} .v.rg-def{color:var(--pos)} .v.rg-mix{color:var(--amber)} .v.rg-on{color:var(--neg)}
+.rgchip{padding:1px 6px;border-radius:4px;font-size:9.5px;letter-spacing:.5px;font-weight:600;white-space:nowrap}
+.rgchip.rg-off{background:rgba(78,201,232,.13);color:var(--cyan)}
+.rgchip.rg-def{background:rgba(61,220,151,.13);color:var(--pos)}
+.rgchip.rg-mix{background:var(--amber-wash);color:var(--amber)}
+.rgchip.rg-on{background:rgba(255,92,92,.13);color:var(--neg)}
+.rgchip.rg-na{background:var(--panel);color:var(--txt-3)}
+
+/* section frame */
+.frame{border:1px solid var(--line);margin-bottom:14px;min-width:0;overflow:hidden}
+.frame>.bar{display:flex;justify-content:space-between;align-items:center;background:var(--panel);border-bottom:1px solid var(--line);padding:5px 10px}
+.frame>.bar .t{color:var(--amber);font-size:10.5px;letter-spacing:2px;font-weight:600}
+.frame>.bar .r{color:var(--txt-3);font-size:9.5px;letter-spacing:.5px}
+.frame .body{padding:0}
+
+/* asset rows */
+.arow{border-bottom:1px solid var(--line);padding:10px 12px;min-width:0}
+.arow:last-child{border-bottom:none}
+.arow .l1{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.arow .aname{color:var(--cyan);font-weight:600;font-size:13.5px}
+.arow .aname small{color:var(--txt-3);font-weight:400;margin-left:8px;font-size:10px}
+.ascii{font-size:12px;letter-spacing:1px;white-space:nowrap;flex-shrink:0}
+.ascii .fill.neg{color:var(--neg)} .ascii .fill.pos{color:var(--pos)} .ascii .fill.neu{color:var(--neu)}
+.ascii .empty{color:var(--line-hi)}
+.ascii .num{font-weight:600;margin-left:8px}
+.num.pos{color:var(--pos)}.num.neg{color:var(--neg)}.num.neu{color:var(--neu)}
+.arow .l2{display:flex;gap:14px;flex-wrap:wrap;color:var(--txt-2);font-size:10.5px;margin-top:3px}
+.arow .l2 b{color:var(--txt);font-weight:500}
+.sent.Positive{color:var(--pos)}.sent.Negative{color:var(--neg)}.sent.Neutral{color:var(--neu)}
+.drv{margin-top:6px;font-size:12px;padding-left:16px}
+.drv .d{display:flex;gap:7px;color:var(--txt-2);margin-bottom:2px}
+.drv .d i{font-style:normal;flex:0 0 10px;font-weight:600;text-align:center}
+.d.p i{color:var(--pos)}.d.n i{color:var(--neg)}
+details.log{margin-top:6px}
+details.log summary{list-style:none;cursor:pointer;color:var(--amber-dim);font-size:10px;letter-spacing:1px}
+details.log summary::-webkit-details-marker{display:none}
+details.log summary::before{content:"> "}
+details.log[open] summary::before{content:"v "}
+details.log summary:hover{color:var(--amber)}
+.logline{margin-top:7px;padding:7px 9px;background:var(--panel);border-left:2px solid var(--line-hi);font-size:11px}
+.logline .lh{color:var(--txt);font-size:11.5px}
+.logline .lm{color:var(--txt-3);font-size:9.5px;margin:2px 0}
+.logline .lq{color:var(--txt-2);font-size:11.5px}
+.tagS{color:var(--amber);font-size:9px;border:1px solid var(--amber-dim);padding:0 4px;border-radius:3px;letter-spacing:1px}
+.impl,.flip{margin-top:7px;padding:6px 9px;background:var(--panel);font-size:11.5px;color:var(--txt-2)}
+.impl b,.flip b{color:var(--amber-dim);font-size:9px;letter-spacing:1.5px;display:block}
+
+/* FX grid */
+.fxr{display:grid;grid-template-columns:28px 78px 62px 1fr;gap:8px;align-items:center;padding:7px 12px;border-bottom:1px solid var(--line);font-size:11.5px}
+.fxr:last-child{border-bottom:none}
+.fxr .rk{color:var(--txt-3);font-size:10px}
+.fxr .cc{font-weight:600}.fxr .cc small{display:block;color:var(--txt-3);font-weight:400;font-size:9px}
+.fxr .bs{font-weight:600;font-size:10px;letter-spacing:.5px}
+.bs.BULL{color:var(--pos)}.bs.BEAR{color:var(--neg)}
+.fxr .dv{color:var(--txt-2);font-size:11px;line-height:1.45}
+.rankline{padding:8px 12px;color:var(--txt-3);font-size:10.5px;border-top:1px solid var(--line);letter-spacing:.5px}
+.rankline b{color:var(--cyan);font-weight:500}
+
+/* risk table */
+table.rk{width:100%;border-collapse:collapse;font-size:11.5px}
+table.rk th{color:var(--txt-3);font-size:9.5px;letter-spacing:1px;font-weight:500;text-align:center;padding:6px;border-bottom:1px solid var(--line)}
+table.rk th:first-child{text-align:left;padding-left:12px}
+table.rk td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:center}
+table.rk tr:last-child td{border-bottom:none}
+table.rk td:first-child{text-align:left;padding-left:12px;line-height:1.4}
+.rname{font-weight:500;color:var(--txt)}
+.rst{font-size:9px;letter-spacing:1px}
+.rst.ACTIVE{color:var(--neg)}.rst.UNRESOLVED{color:var(--amber)}.rst.UPCOMING{color:var(--cyan)}
+.expv{font-weight:600}
+.expv.p{color:var(--pos)}.expv.n{color:var(--neg)}.expv.z{color:var(--neu)}.expv.w{color:var(--txt-3);font-weight:400;font-size:10px}
+
+/* notes + alert */
+.note{padding:9px 12px;border-bottom:1px solid var(--line);font-size:12px;color:var(--txt-2)}
+.note:last-child{border-bottom:none}
+.note b{color:var(--cyan);font-size:9.5px;letter-spacing:1.5px;display:block;font-weight:600}
+.alert{border:1px solid var(--amber-dim);background:linear-gradient(180deg,var(--amber-wash),transparent);padding:10px 12px;margin-bottom:14px}
+.alert .t{color:var(--amber);font-size:10px;letter-spacing:2px;font-weight:600}
+.alert p{font-size:12.5px;margin-top:3px}
+/* MARKET SUMMARY — bulleted stories, sits above the ONE-LINE inside the same card */
+.alert .sumhd{color:var(--amber);font-size:10px;letter-spacing:2px;font-weight:600;margin-bottom:5px}
+.alert ul.sum{list-style:none;margin:0 0 4px;padding:0}
+.alert ul.sum li{position:relative;padding-left:14px;font-size:12.5px;line-height:1.6;color:var(--txt-2);margin-bottom:3px}
+.alert ul.sum li::before{content:"›";position:absolute;left:2px;color:var(--cyan);font-weight:600}
+.alert .divhr{border:none;border-top:1px solid var(--line);margin:9px 0}
+footer{color:var(--txt-3);font-size:9.5px;text-align:center;margin-top:20px;letter-spacing:.5px;line-height:1.8}
+
+/* ═══════════════ RESPONSIVE ═══════════════
+   mobile-first stays the default; the rules below only ADD on wider screens.
+   Same DATA, same JSON — layout only. */
+
+.cols{display:block}
+.log-table{display:none}          /* mobile: cards only */
+
+/* ═══ ARTICLE TABLE (desktop) — finalised ═══
+   cols: DATE+CTX │ HEADLINE+SOURCE │ HEAD │ BODY │ ALIGN │ SCORE │ CONF │ PHRASE
+   skin: Subtle zebra + hairline column rules · spacing B · baseline lock */
+.log-table{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.artt{width:100%;table-layout:fixed;border-collapse:collapse;font-size:11px;margin-top:8px}
+
+/* header — DATE and HEADLINE split but share one field (no rule between) */
+table.artt th{font-size:8.5px;color:var(--txt-3);letter-spacing:1px;font-weight:500;text-align:left;
+  padding:8px 9px 9px;white-space:nowrap;border-right:1px solid rgba(255,255,255,.045)}
+table.artt th.r{text-align:right}
+table.artt th.h-date{border-right:none}
+table.artt th:last-child{border-right:none}
+table.artt thead tr{border-bottom:1px solid var(--line-hi)}
+
+/* body — spacing B */
+table.artt td{padding:12px 9px;vertical-align:top;color:var(--txt-2);line-height:1.55;
+  border-right:1px solid rgba(255,255,255,.045)}
+table.artt td:last-child{border-right:none}
+table.artt tbody tr{border-bottom:1px solid var(--line)}
+table.artt tbody tr:last-child{border-bottom:none}
+table.artt tbody tr:nth-child(odd){background:rgba(255,255,255,.028)}
+table.artt tbody tr:hover{background:rgba(255,255,255,.06)}
+
+/* baseline lock — only HEADLINE and PHRASE may wrap */
+table.artt td.pin{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+table.artt td.art,table.artt td.ph{overflow-wrap:anywhere}
+
+/* col 1 — DATE + CTX */
+table.artt td.meta .dt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--txt-2);font-size:10.5px}
+table.artt td.meta .cx{margin-top:5px;font-size:9.5px;letter-spacing:.5px;color:var(--txt-3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* col 2 — HEADLINE + SOURCE */
+table.artt td.art .hl{color:var(--txt);font-size:11.5px;line-height:1.5}
+table.artt td.art .so{margin-top:5px;font-size:9.5px;color:var(--txt-3);letter-spacing:.5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* signal cells */
+table.artt td.sent{font-size:10.5px;letter-spacing:.5px}
+table.artt td.sent.Positive{color:var(--pos)}
+table.artt td.sent.Negative{color:var(--neg)}
+table.artt td.sent.Neutral{color:var(--txt-2);font-size:9px;letter-spacing:.2px}
+table.artt td.ph{font-style:italic}
+table.artt td.num{font-weight:600;white-space:nowrap;font-size:11px;text-align:right}
+table.artt td.cf{text-align:right;white-space:nowrap}
+table.artt .tagS{font-size:9px;color:var(--amber);border:1px solid var(--amber-dim);
+  padding:0 4px;letter-spacing:.5px;display:inline-block}
+
+/* widths — total 100% */
+table.artt col.c-meta{width:12%}
+table.artt col.c-art{width:27%}
+table.artt col.c-h{width:7.5%}
+table.artt col.c-b{width:7.5%}
+table.artt col.c-al{width:8%}
+table.artt col.c-sc{width:8%}
+table.artt col.c-cf{width:7%}
+table.artt col.c-ph{width:23%}
+
+/* ── TABLET ─────────────── ≥ 720px */
+@media (min-width:720px){
+  .page,.docbar{max-width:1000px}
+  .status div{flex:1 1 33.333%}
+  /* asset rows: score meter gets its own generous column */
+  .arow .l1{flex-wrap:nowrap}
+  .arow .ascii{font-size:13px}
+}
+
+/* ── DESKTOP ────────────── ≥ 1000px */
+@media (min-width:1000px){
+  .page{max-width:1240px;padding:0 20px}
+  .docbar{max-width:1240px;padding:12px 20px 0}
+
+  /* two-column deck: left stacks CROSS-ASSET → RISK → FX, right is ASSET SENTIMENT (tall) */
+  .cols{display:grid;grid-template-columns:minmax(300px,1fr) minmax(0,1.55fr);
+        grid-template-areas:"xa assets" "risk assets" "fx assets" ". assets";
+        gap:0 14px;align-items:start}
+  .f-assets{grid-area:assets;min-width:0}
+  .f-fx{grid-area:fx;min-width:0}
+  .f-risk{grid-area:risk;min-width:0}
+  .f-xa{grid-area:xa;min-width:0}
+
+  /* the article log opens as the real table, and opens by DEFAULT */
+  .log-cards{display:none}
+  .log-table{display:block}
+  details.log summary{font-size:10.5px}
+
+  /* asset row breathes */
+  .arow{padding:13px 14px}
+  .arow .aname{font-size:15px}
+  .arow .ascii{font-size:14px;letter-spacing:1.5px}
+  .drv,.impl{font-size:12.5px}
+  .sys-title{font-size:15px}
+  .status .v{font-size:15px}
+}
+
+/* ── WIDE ───────────────── ≥ 1400px */
+@media (min-width:1400px){
+  .page,.docbar{max-width:1400px}
+  .cols{grid-template-columns:minmax(340px,1fr) minmax(0,1.7fr);gap:0 18px}
+}
+
+/* ── JSON READER loader (theme-independent) ─────────── */
+#jload{max-width:1240px;margin:14px auto;padding:12px 16px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;background:#0f1419;color:#c9d4df;border:1px solid #2a3541;border-radius:8px}
+#jload textarea{width:100%;min-height:120px;margin:10px 0;padding:10px;box-sizing:border-box;resize:vertical;background:#080b0e;color:#c9d4df;border:1px solid #2a3541;border-radius:6px;font:12px/1.5 ui-monospace,monospace}
+#jload .jl-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+#jload button{font:600 11px ui-monospace,monospace;letter-spacing:.5px;padding:7px 14px;border-radius:6px;cursor:pointer;border:1px solid #2a3541;background:#1a232d;color:#c9d4df}
+#jload button.pri{background:#1f6f5c;border-color:#2a8a72;color:#eafff8}
+#jload button:hover{filter:brightness(1.15)}
+#jload input[type=file]{color:#8a97a4;font-size:11px}
+#jload.drag{border-color:#7fd4c1;box-shadow:0 0 0 2px rgba(127,212,193,.2)}
+#vstrip{margin-top:10px;padding:9px 12px;border-radius:6px;font-size:11.5px;display:none}
+#vstrip code{background:rgba(255,255,255,.06);padding:1px 4px;border-radius:3px}
+#vstrip.ok{display:block;background:#12271f;border:1px solid #2f6f57;color:#8fe6c8}
+#vstrip.bad{display:block;background:#2a1518;border:1px solid #7a3540;color:#f0a9b2}
+#vstrip ul{margin:6px 0 0;padding-left:18px}
+#vstrip li{margin:2px 0}
+#vstrip .vh{font-weight:700;letter-spacing:.5px}
+
+/* ── PAPYRUS archive shell (themed via body vars) ───── */
+body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--mono)}
+#view-list{max-width:1000px;margin:0 auto;padding:18px 16px;font:13px/1.5 var(--mono);color:var(--txt)}
+.pap-hd{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--amber-dim);padding-bottom:10px;margin-bottom:14px;gap:12px}
+.pap-hd .ttl{font-size:16px;letter-spacing:2px;color:var(--amber);font-weight:700}
+.pap-hd .rt{display:flex;align-items:center;gap:12px}
+.pap-hd .cnt{font-size:11px;color:var(--txt-3);letter-spacing:1px}
+#store-banner{display:none;margin:0 0 12px;padding:8px 12px;border-radius:6px;background:var(--panel);border:1px solid var(--amber);color:var(--amber);font-size:11.5px}
+#jload{padding:12px 14px;font:12px/1.5 var(--mono);background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:8px;margin-bottom:14px}
+#jload .jl-hd{color:var(--amber);letter-spacing:1px;font-weight:700;font-size:12px;margin-bottom:8px}
+#jload textarea{width:100%;min-height:96px;padding:10px;box-sizing:border-box;resize:vertical;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:6px;font:12px/1.5 var(--mono)}
+#jload .jl-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+#jload button{font:600 11px var(--mono);letter-spacing:.5px;padding:7px 14px;border-radius:6px;cursor:pointer;border:1px solid var(--line);background:var(--bg);color:var(--txt-2)}
+#jload button.pri{background:var(--amber-wash);border-color:var(--amber);color:var(--amber);font-weight:700}
+#jload button:hover{border-color:var(--amber-dim)}
+#jload input[type=file]{color:var(--txt-3);font-size:11px}
+#jload.drag{border-color:var(--amber);box-shadow:0 0 0 2px var(--amber-wash)}
+#vstrip{margin-top:10px;padding:9px 12px;border-radius:6px;font-size:11.5px;background:var(--panel)}
+#vstrip:empty{display:none}
+#vstrip code{background:var(--amber-wash);padding:1px 4px;border-radius:3px}
+#vstrip.ok{border:1px solid var(--pos);color:var(--pos)}
+#vstrip.bad{border:1px solid var(--neg);color:var(--neg)}
+#vstrip ul{margin:6px 0 0;padding-left:18px}#vstrip li{margin:2px 0}#vstrip .vh{font-weight:700;letter-spacing:.5px}
+#doclist{margin-top:6px}
+.empty-list{padding:26px 14px;text-align:center;color:var(--txt-3);border:1px dashed var(--line);border-radius:8px}
+/* cardlist · title-first + accent bar (สีบอก regime) */
+.docrow{position:relative;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;background:var(--panel);padding:12px 14px 11px 16px;cursor:pointer;overflow:hidden}
+.docrow:hover{border-color:var(--amber-dim)}
+.docrow::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--line-hi)}
+.docrow.rg-off::before{background:var(--cyan)}
+.docrow.rg-def::before{background:var(--pos)}
+.docrow.rg-mix::before{background:var(--amber)}
+.docrow.rg-on::before {background:var(--neg)}
+.dr-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.dr-titlerow{display:flex;align-items:center;gap:7px;min-width:0}
+.dr-title{color:var(--txt);font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr-title .pfx{color:var(--txt-3);font-weight:500}
+.dr-rename{background:transparent;border:none;color:var(--txt-3);cursor:pointer;font-size:11px;padding:2px 4px;border-radius:4px;flex:0 0 auto;line-height:1}
+.dr-rename:hover{color:var(--amber);background:var(--amber-wash)}
+.dr-title-input{font-family:var(--mono);font-size:13.5px;font-weight:700;background:var(--bg);color:var(--txt);border:1px solid var(--amber);border-radius:4px;padding:1px 6px;min-width:150px;outline:none}
+.dr-acts{display:flex;gap:2px;flex:0 0 auto;opacity:.5;transition:opacity .12s}
+.docrow:hover .dr-acts{opacity:1}
+.dr-sub{font-size:11px;color:var(--txt-2);margin-top:6px}
+.dr-meta{font-size:9.5px;color:var(--txt-3);margin-top:8px;padding-top:7px;border-top:1px solid var(--line);display:flex;gap:9px;flex-wrap:wrap;align-items:center;letter-spacing:.3px}
+.dr-meta .id{color:var(--txt-2)}
+.dr-meta .sep{opacity:.4}
+.dr-meta .lbl{opacity:.7}
+.tag-past{color:var(--amber)}
+.tag-ver{color:var(--cyan)}
+/* icon action buttons */
+.dr-exp,.dr-del{background:transparent;border:none;color:var(--txt-3);cursor:pointer;padding:4px;border-radius:5px;line-height:1;display:flex;align-items:center;justify-content:center}
+.dr-exp:hover{color:var(--amber);background:var(--amber-wash)}
+.dr-del:hover{color:var(--neg);background:rgba(255,92,92,.1)}
+.dr-exp svg,.dr-del svg{width:14px;height:14px;display:block;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.dr-del.arm1{color:var(--amber)}
+.dr-del.arm2{width:auto;padding:0 9px;font-size:10px;font-weight:700;letter-spacing:.07em;font-family:var(--mono);color:var(--neg)}
+.ask{margin-top:7px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.ask button{font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:4px 10px;border:1px solid var(--line-hi);background:var(--bg);color:var(--txt);border-radius:4px;cursor:pointer}
+.ask button:hover{border-color:var(--amber);color:var(--amber)}
+.docbar .theme-btn{margin-left:auto}
+.docbar #back{font:600 11px var(--mono);letter-spacing:.5px;padding:7px 14px;border-radius:6px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--txt-2)}
+.docbar #back:hover{border-color:var(--amber-dim);color:var(--amber)}
+.docbar .wordbtn{font:600 11px var(--mono);letter-spacing:.5px;padding:7px 14px;border-radius:6px;cursor:pointer;border:1px solid var(--amber);background:var(--amber-wash);color:var(--amber)}
+.docbar .wordbtn:hover{filter:brightness(1.15)}
+@media print{ #view-list,.docbar{display:none !important} }
+
+/* ── MOBILE (< 720px) ──────────────────────────────────────────
+   layout ที่ต้องการ:
+     [← ARCHIVE][EXPORT WORD] .......... [ปุ่มธีม ชิดขวาบน]
+     JANUS://SENTIMENT
+     _ 24/07/26 _ 17:34  ✎ ............. [TZ]
+   ซ่อน id/ver บนมือถือ                                          */
+@media (max-width:719px){
+  .topbar{display:grid;grid-template-columns:1fr auto;align-items:end;gap:4px 10px}
+  .sys-title{grid-column:1;grid-row:1;font-size:12px;letter-spacing:.5px;gap:6px}
+  .sys-title .sysname{flex-basis:100%}          /* บังคับขึ้นบรรทัดใหม่หลังชื่อระบบ */
+  .tb-right{grid-column:2;grid-row:1;align-self:end}
+  .tb-meta{display:none}                        /* ซ่อน id / ver บนมือถือ */
+  .status .rgtop{flex-direction:column;align-items:stretch;gap:8px}
+  .status .v{font-size:24px}
+  .status .cvbox{text-align:left;border-top:1px dashed var(--line);padding-top:8px}
+  .status .cvdesc{max-width:none}
+  .status .rgdef li{flex-direction:column;gap:1px;margin-bottom:6px}
+  .status .rgdef li b{flex:none}
+  .status .ticks span{font-size:7px}
+}
+
+</style>
+</head>
+<body class="theme-normal">
+<div id="view-list">
+  <div class="pap-hd">
+    <span class="ttl">PAPYRUS</span>
+    <div class="rt">
+      <span class="cnt" id="doccount">0 DOCS</span>
+      <span class="tzlabel">TZ</span><select class="tzsel" aria-label="Timezone"><option value="th">TH</option><option value="utc">UTC</option><option value="ny">NY</option></select>
+      <button class="theme-btn" data-themebtn title="สลับ Normal / Dark" aria-label="สลับธีม"><svg class="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+    </div>
+  </div>
+  <div id="store-banner">⚠ in-memory only — เปิดเป็นไฟล์ธรรมดา ข้อมูลจะหายเมื่อปิด · รันเป็น Claude artifact เพื่อ persist ข้ามเซสชัน</div>
+  <div id="jload">
+    <div class="jl-hd">IMPORT REPORT</div>
+    <textarea id="jl-ta" placeholder="วาง janus.report JSON — หรือลากไฟล์ .json มาวาง / เลือกไฟล์ · จะ validate แล้ว save เข้าคลัง"></textarea>
+    <div class="jl-row">
+      <button class="pri" id="jl-render">IMPORT → SAVE</button>
+      <button id="jl-sample">LOAD SAMPLE</button>
+      <button id="jl-clear">CLEAR</button>
+      <button id="jl-exportall">EXPORT ALL</button>
+      <button id="jl-rebuild" title="กู้ index จาก docs">REBUILD INDEX</button>
+      <input type="file" id="jl-file" accept=".json,application/json">
+    </div>
+    <div id="vstrip"></div>
+  </div>
+  <div id="doclist"></div>
+</div>
+
+<div id="view-doc" style="display:none">
+  <div class="docbar"><button id="back">← ARCHIVE</button><button id="jl-word" class="wordbtn">EXPORT WORD</button><button class="theme-btn" data-themebtn title="สลับ Normal / Dark" aria-label="สลับธีม"><svg class="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button></div>
+  <div class="janus" id="janus">
+<div class="page">
+
+<div class="topbar">
+  <div class="sys-title" id="systitle"></div>
+  <div class="tb-right">
+    <div class="tb-meta" id="tmeta"></div>
+    <div class="tzwrap"><span class="tzlabel">TZ</span><select class="tzsel" id="tz-main" aria-label="Timezone"><option value="th">TH</option><option value="utc">UTC</option><option value="ny">NY</option></select></div>
+  </div>
+</div>
+<div class="status" id="status"></div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     PASTE REPORT JSON HERE — one janus.daily.v1 object between the braces.
+     Leave empty to show the blank template.
+     ══════════════════════════════════════════════════════════════ -->
+<script type="application/json" id="janus-data">
+</script>
+
+<div class="alert" id="alert"></div>
+
+<div class="enote" id="enote"></div>
+
+<div class="cols">
+
+<div class="frame f-xa">
+  <div class="bar"><span class="t">CROSS-ASSET</span><span class="r">SYNTHESIS</span></div>
+  <div class="body" id="xa"></div>
+</div>
+
+<div class="frame f-risk">
+  <div class="bar"><span class="t">RISK MATRIX</span><span class="r">EXPOSURE −3..+3</span></div>
+  <div class="body"><table class="rk" id="risk"></table><div class="flip" id="flip"></div></div>
+</div>
+
+<div class="frame f-assets">
+  <div class="bar"><span class="t">ASSET SENTIMENT</span><span class="r" id="awin"></span></div>
+  <div class="body" id="assets"></div>
+</div>
+
+<div class="frame f-fx">
+  <div class="bar"><span class="t">FX STRENGTH</span><span class="r">VS USD · RANKED</span></div>
+  <div class="body" id="fx"></div>
+</div>
+
+</div><!-- /cols -->
+
+<footer id="foot"></footer>
+</div>
+</div>
+</div>
+
+<script type="application/json" id="janus-data"></script>
+
+<script>
+(function(){
+  function setTheme(t){
+    document.body.classList.toggle("theme-dark",  t==="dark");
+    document.body.classList.toggle("theme-normal", t==="normal");
+  }
+  // ปุ่มไอคอน ☀/☾ — toggle (delegated: รองรับปุ่มที่ render ทีหลังด้วย)
+  document.addEventListener("click",e=>{
+    if(e.target.closest && e.target.closest("[data-themebtn]"))
+      setTheme(document.body.classList.contains("theme-dark")?"normal":"dark");
+  });
+  setTheme(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "normal");
+})();
+</script>
+<script>
+/* ── TZ display module · store og, display th/og ── */
+(function(){
+  window.__tzMode="th";   // th | utc | ny  (default per decision 2026-07-18)
+  const ZONES={th:{tz:"Asia/Bangkok",suf:"+7"},utc:{tz:"UTC",suf:"UTC"},ny:{tz:"America/New_York",suf:"ET"}};
+  function parts(iso,mode){
+    const empty={d:"",t:"",suf:"",date:"",time:""};
+    if(!iso) return empty;
+    const ep=Date.parse(iso);
+    if(isNaN(ep)) return {d:String(iso).slice(0,10),t:String(iso).slice(11,16),suf:"",date:"",time:""};
+    const z=ZONES[mode]||ZONES.th;
+    const fp=new Intl.DateTimeFormat("en-GB",{timeZone:z.tz,year:"numeric",month:"2-digit",
+      day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}).formatToParts(new Date(ep));
+    const g=t=>(fp.find(x=>x.type===t)||{}).value||"";
+    const Y=g("year"),Mo=g("month"),D=g("day"),H=g("hour"),Mi=g("minute");
+    return { d:Y+"-"+Mo+"-"+D, t:H+":"+Mi, suf:z.suf, date:D+"/"+Mo+"/"+Y.slice(2), time:H+":"+Mi };
+  }
+  window.__tzParts=parts;
+  window.__fmtDT=iso=>{const p=parts(iso,window.__tzMode);return (p.d+" "+p.t+" "+p.suf).trim();};
+  window.__fmtD =iso=>parts(iso,window.__tzMode).d;
+  window.__fmtShort=iso=>{const p=parts(iso,window.__tzMode);return (p.d.slice(5)+" "+p.t+" "+p.suf).trim();};
+  // default title core (ตอบ tz toggle) · card="dd/mm/yy hh:mm" · report="dd/mm/yy _ hh:mm"
+  window.__titleCore =iso=>{const p=parts(iso,window.__tzMode);return (p.date+" "+p.time).trim();};
+  window.__titleCoreU=iso=>{const p=parts(iso,window.__tzMode);return (p.date+" _ "+p.time).trim();};
+
+  function setMode(m){
+    if(!ZONES[m]) m="th";
+    window.__tzMode=m;
+    document.querySelectorAll(".tzsel").forEach(sel=>{ if(sel.value!==m) sel.value=m; });
+    const dv=document.getElementById("view-doc");
+    if(window.__currentDoc && typeof renderReport==="function" && dv && dv.style.display!=="none"){
+      renderReport(window.__currentDoc);
+    }
+    const lv=document.getElementById("view-list");
+    if(typeof refreshList==="function" && lv && lv.style.display!=="none"){ refreshList(); }
+  }
+  window.__setTz=setMode;
+  document.addEventListener("change",e=>{ if(e.target.classList&&e.target.classList.contains("tzsel")) setMode(e.target.value); });
+})();
+</script>
+
+<script id="sample-data" type="application/json">{"schema":"janus.daily.v1","meta":{"report_id":"papyrus.2026-07-15.0630","tz":"+07:00","generated":"2026-07-15T06:30:00+07:00","news_window":"12-24h","assets":["US stock","XAUUSD","EURUSD"],"language":"th","generator":"claude-fable-5"},"asset_reports":[{"asset":"US stock","timeframe":"2026-07-14/2026-07-15","sources_analyzed":4,"mean_score":0.11,"dominant_sentiment":"Neutral","emotion_theme":"Relief","analyst_confidence":88,"articles":[{"date":"2026-07-14T18:30:00Z","source":"Yahoo Finance","headline":"Stock market today: S&P 500, Nasdaq rise after cooler-than-expected CPI report","url":"https://finance.yahoo.com/markets/live/stock-market-today-tuesday-july-14-dow-sp-500-nasdaq-070833816.html","headline_sentiment":"Positive","body_sentiment":"Positive","alignment":"Aligned","score":0.45,"confidence":90,"supporting_phrase":"rose as markets assessed a cooler-than-expected consumer inflation report","context_type":"Asset-Specific"},{"date":"2026-07-14T23:00:00Z","source":"CNBC","headline":"Stock market today: Live updates — IBM collapse, bank earnings beat","url":"https://www.cnbc.com/2026/07/13/stock-market-today-live-updates.html","headline_sentiment":"Neutral","body_sentiment":"Neutral","alignment":"Aligned","score":-0.05,"confidence":90,"supporting_phrase":"on pace for its worst day going back to Oct. 19, 1987","context_type":"Asset-Specific"},{"date":"2026-07-14T20:30:00Z","source":"CNBC","headline":"Treasury yields tumble after June CPI slows much more than expected","url":"https://www.cnbc.com/2026/07/14/treasury-yields-rise-as-fed-rate-hike-expectations-grow.html","headline_sentiment":"Positive","body_sentiment":"Positive","alignment":"Aligned","score":0.4,"confidence":90,"supporting_phrase":"Treasury yields fell Tuesday after a cooler-than-expected inflation report","context_type":"Shared"},{"date":"2026-07-13T20:00:00Z","source":"CNBC","headline":"Brent oil jumps more than 9% after Trump reinstates Iran blockade","url":"https://www.cnbc.com/2026/07/12/oil-price-strait-hormuz-iran-trump-tanker.html","headline_sentiment":"Negative","body_sentiment":"Negative","alignment":"Aligned","score":-0.35,"confidence":80,"supporting_phrase":"the U.S. would reimpose a naval blockade against Iran","context_type":"Shared"}],"top_positive_drivers":["S&P +0.4% / Nasdaq +1% รับ CPI มิ.ย.เย็นกว่าคาด (3.5% vs 3.8%)","แบงก์ใหญ่เปิดฤดู earnings ด้วยกำไร Q2 ดีกว่าคาดยกแผง (GS/JPM/BAC/C) + Warsh มองเศรษฐกิจ resilient"],"top_negative_drivers":["IBM ร่วง ~23% หนักสุดนับแต่ปี 1987 หลัง preannounce รายได้พลาด กดกลุ่ม software","Hormuz blockade enforcement เริ่มบ่ายอังคาร ET — risk-off ค้างในระบบ"],"implication":"วัน relief rally ที่ mean ออกมาแค่ +0.11 เพราะ IBM shock กับสงครามถ่วงข่าวบวกไว้ ตลาดยัง price hike อีก 1 ครั้งในปีนี้ จึงยังไม่ใช่ all-clear — จับตา PPI คืนนี้เป็นด่านถัดไป"},{"asset":"XAUUSD","timeframe":"2026-07-14/2026-07-15","sources_analyzed":4,"mean_score":0.08,"dominant_sentiment":"Neutral","emotion_theme":"Uncertainty","analyst_confidence":79,"articles":[{"date":"2026-07-14T19:30:00Z","source":"Barchart","headline":"Dollar Falls and Gold Rallies as US CPI Trails Estimates","url":"https://www.barchart.com/story/news/3276122/dollar-falls-and-gold-rallies-as-us-cpi-trails-estimates","headline_sentiment":"Positive","body_sentiment":"Positive","alignment":"Aligned","score":0.5,"confidence":90,"supporting_phrase":"pushed the dollar and T-note yields lower","context_type":"Asset-Specific"},{"date":"2026-07-13T14:00:00Z","source":"Trading Economics","headline":"Gold falls more than 2% as Middle East escalation fuels rate-hike bets","url":"https://tradingeconomics.com/commodity/gold","headline_sentiment":"Negative","body_sentiment":"Negative","alignment":"Aligned","score":-0.4,"confidence":57,"supporting_phrase":"reinforced expectations that US interest rates will remain elevated for longer","context_type":"Asset-Specific"},{"date":"2026-07-14T20:30:00Z","source":"CNBC","headline":"Treasury yields tumble after June CPI slows much more than expected","url":"https://www.cnbc.com/2026/07/14/treasury-yields-rise-as-fed-rate-hike-expectations-grow.html","headline_sentiment":"Positive","body_sentiment":"Positive","alignment":"Aligned","score":0.45,"confidence":90,"supporting_phrase":"The consumer price index fell 0.4% in June","context_type":"Shared"},{"date":"2026-07-13T20:00:00Z","source":"CNBC","headline":"Brent oil jumps more than 9% after Trump reinstates Iran blockade","url":"https://www.cnbc.com/2026/07/12/oil-price-strait-hormuz-iran-trump-tanker.html","headline_sentiment":"Negative","body_sentiment":"Negative","alignment":"Aligned","score":-0.25,"confidence":80,"supporting_phrase":"traded strikes over the weekend","context_type":"Shared"}],"top_positive_drivers":["ทอง +1.87% หลัง CPI เย็นกด USD และ yields — กลับมายืนเหนือ $4,000 เข้าหาโซน $4,100","PBoC ซื้อทองต่อเนื่องเดือนที่ 20 ยาวสุดเป็นประวัติการณ์ — official demand ยังหนุนพื้น"],"top_negative_drivers":["วันจันทร์หลุด 2% เหลือ $4,020 เพราะ escalation ถูกอ่านผ่านเลนส์ oil→hawkish Fed ไม่ใช่ haven","ราคายังต่ำกว่า 20-day EMA ($4,126) — bias เทคนิคระยะสั้นยังชี้ลง"],"implication":"Uncertainty แท้รอบที่สอง — สงครามที่ควรหนุน haven กลับกดทองผ่านช่องเงินเฟ้อ ส่วน CPI ที่หนุนทองมาจากขั้วตรงข้ามของสมการเดียวกัน ราคาแกว่ง $3,985→$4,100 ในสองวันโดย mean สุทธิเกือบศูนย์ รอ PPI และ FOMC 28-29 ก.ค. เป็นตัวแตกหัก"},{"asset":"EURUSD","timeframe":"2026-07-14/2026-07-15","sources_analyzed":4,"mean_score":0.04,"dominant_sentiment":"Neutral","emotion_theme":"Caution","analyst_confidence":79,"articles":[{"date":"2026-07-14T14:00:00Z","source":"FXStreet","headline":"EUR/USD climbs to 1.1460 as US Dollar sells off on soft CPI","url":"https://www.fxstreet.com/news/united-states-dollar-index-holds-correction-near-10110-eyes-on-inflation-data-202607141156","headline_sentiment":"Positive","body_sentiment":"Positive","alignment":"Aligned","score":0.45,"confidence":72,"supporting_phrase":"in response to the marked sell-off in the US Dollar","context_type":"Asset-Specific"},{"date":"2026-07-14T10:30:00Z","source":"FXEmpire","headline":"DXY eyes $103; euro pressured as ECB tightening cycle seen concluded","url":"https://www.fxempire.com/forecasts/article/us-dollar-price-forecast-dxy-eyes-103-ahead-of-us-cpi-and-fed-signals-eur-usd-and-gbp-usd-consolidate-1610145","headline_sentiment":"Negative","body_sentiment":"Negative","alignment":"Aligned","score":-0.35,"confidence":72,"supporting_phrase":"rate hike cycle has been concluded","context_type":"Asset-Specific"},{"date":"2026-07-14T20:30:00Z","source":"CNBC","headline":"Treasury yields tumble after June CPI slows much more than expected","url":"https://www.cnbc.com/2026/07/14/treasury-yields-rise-as-fed-rate-hike-expectations-grow.html","headline_sentiment":"Positive","body_sentiment":"Positive","alignment":"Aligned","score":0.4,"confidence":90,"supporting_phrase":"bringing its annual increase to 3.5%","context_type":"Shared"},{"date":"2026-07-13T20:00:00Z","source":"CNBC","headline":"Brent oil jumps more than 9% after Trump reinstates Iran blockade","url":"https://www.cnbc.com/2026/07/12/oil-price-strait-hormuz-iran-trump-tanker.html","headline_sentiment":"Negative","body_sentiment":"Negative","alignment":"Aligned","score":-0.35,"confidence":80,"supporting_phrase":"battle to control the Strait of Hormuz","context_type":"Shared"}],"top_positive_drivers":["EURUSD เด้งแตะโซน 1.1460 (สูงสุด 1 สัปดาห์) หลัง USD ถูกเทจาก CPI เย็น","Bund yield 10 ปีเยอรมันขึ้นแตะ 3.144% สูงสุด 1.75 เดือน ช่วย rate differential ฝั่ง EUR"],"top_negative_drivers":["ตลาดมองว่า ECB จบรอบขึ้นดอกเบี้ยแล้ว (โอกาส hike 23 ก.ค. เหลือ ~12%) + เศรษฐกิจยูโรโซนโตอ่อน","ING มอง USD มี upside ระยะสั้นถึง DXY 102 ถ้า Hormuz blockade ลากยาว"],"implication":"เด้งวันนี้เป็น corrective ในโครงที่ยังเอียงลง — ขา EUR เองแทบไม่มีเชื้อเพลิงใหม่ (ECB จบรอบ) เหลือแต่ขา USD อ่อนเป็นตัวขับ จึงเป็น Caution: รู้ทิศเสี่ยง (ลง) แต่จังหวะขึ้นกับ USD และสงครามมากกว่ายูโรโซนเอง กรอบจับตา 1.1323-1.1499 เดิม"}],"fx_overview":{"currencies":[{"ccy":"USD","proxy":"DXY","inverted":false,"bias":"Neutral","driver":"DXY ถอยมา ~100.70 หลัง CPI เย็น แต่ war premium และ hike ที่ยังค้าง 1 ครั้งพยุงไว้"},{"ccy":"EUR","proxy":"EURUSD","inverted":false,"bias":"Bullish","driver":"เด้งวัน +0.55% จาก USD sell-off + bund yields สูงสุด 1.75 เดือน (bullish เฉพาะกรอบวัน)"},{"ccy":"CHF","proxy":"USDCHF","inverted":true,"bias":"Bullish","driver":"haven เดียวที่ไม่โดนช่อง oil→hike หักล้าง ขณะ blockade enforcement เริ่ม"},{"ccy":"JPY","proxy":"USDJPY","inverted":true,"bias":"Bearish","driver":"ค้างเหนือ 160/USD อ่อนสุดรอบ 39 ปี — เด้งเล็กจาก yields ลงแต่ความเสี่ยง intervention สูง"},{"ccy":"AUD","proxy":"AUDUSD","inverted":false,"bias":"Neutral","driver":"risk tone ฟื้น + จีน export มิ.ย. +27% หนุน แต่สงครามยังถ่วง"},{"ccy":"CAD","proxy":"USDCAD","inverted":true,"bias":"Bullish","driver":"WTI พุ่งแรงสุดนับแต่เมษายน ยืน $78-79 — petro-currency รับเต็ม"},{"ccy":"THB","proxy":"USDTHB","inverted":true,"bias":"Bearish","driver":"ต้นทุนนำเข้าพลังงานพุ่งตาม oil shock ได้อานิสงส์ USD อ่อนแค่บางส่วน"}],"ranking_strong_to_weak":["CAD","CHF","EUR","AUD","USD","THB","JPY"]},"macro_backdrop":["CPI มิ.ย.เย็นกว่าคาด (3.5% y/y, core 2.6%) หั่นโอกาส Fed ขึ้นดอกเบี้ย — ก.ค.เหลือ 16% จาก 40% · ก.ย.เหลือ 60% จาก 74% กด USD และ yields ลงทั้งกระดาน","ฝั่งสงคราม Trump ประกาศ Hormuz blockade รอบใหม่ ดัน Brent พุ่ง 9.6% ปิด $83.30 แรงสุดตั้งแต่ พ.ค. 2020 — war premium ค้างในน้ำมัน ปะทะแรง disinflation จน sentiment ทุก asset บีบเข้าศูนย์"],"cross_asset":{"shared_macro_drivers":"CPI มิ.ย.เย็นกว่าคาด (yields↓ USD↓ = บวกทุก asset) ปะทะ Hormuz blockade + oil พุ่ง 9.6% (risk-off + เงินเฟ้อพลังงาน = ลบทุก asset) — event ใหญ่สองลูกใน 24 ชม. ดึงคนละทาง","divergence_note":"รอบก่อน USD กินรวบทุกเลนส์ รอบนี้กลับด้าน — USD โดน CPI เตะจนถอย mean ทั้งสาม asset บีบเข้าศูนย์พร้อมกัน (+0.11/+0.08/+0.04) ซึ่งไม่ใช่ตลาดนิ่ง แต่คือแรงมหาศาลสองข้างหักล้างกันเกือบพอดี","key_insight":"ตัวแปรนำกำลังสลับจากสงครามเป็นเงินเฟ้อ/Fed — war premium ยังค้างในน้ำมัน แต่ FX ทอง หุ้น เทรดตาม CPI เป็นหลักแล้ว สมดุลนี้เปราะ: PPI พรุ่งนี้กับ FOMC 28-29 ก.ค. คือตัวชี้ว่าข้างไหนชนะ"},"risk_summary":{"narrative":"สนามรบสองแนว — เงินเฟ้อคลายตัวจริง (CPI เย็นทุกองค์ประกอบ core 2.6%) แต่สงคราม re-escalate เต็มรูปแบบ: ceasefire ตายสนิท เรือ ~230 ลำติดค้างในอ่าว และ blockade enforcement เริ่ม 16:00 ET วันอังคาร ตลาดหุ้นเลือกมอง CPI ตลาดน้ำมันเลือกมองสงคราม","regime":"Mixed","conviction":"Medium","risk_factors":[{"name":"Hormuz blockade enforcement / US-Iran escalation","status":"Active","exposures":{"US stock":-2,"XAUUSD":-1,"EURUSD":-2}},{"name":"Fed hike repricing (เหลือ ~1 hike, FOMC 28-29 ก.ค.)","status":"Unresolved","exposures":{"US stock":-1,"XAUUSD":-2,"EURUSD":-1}},{"name":"US PPI (15 ก.ค.) + retail sales + jobless claims","status":"Upcoming","exposures":{"US stock":"watch","XAUUSD":"watch","EURUSD":"watch"}},{"name":"Q2 earnings season (แบงก์ beat / IBM ช็อก)","status":"Active","exposures":{"US stock":1,"XAUUSD":0,"EURUSD":0}}],"flip_trigger":"PPI เย็นกว่าคาด + enforcement ผ่าน 48 ชม.แรกโดยไม่มีเรือพาณิชย์ถูกโจมตี → Risk-On / เรือพาณิชย์ถูกโจมตีหลัง enforcement หรือ Brent ปิดเหนือ $90 → Defensive","one_line":"อย่า chase relief rally — blockade enforcement เพิ่งเริ่มไม่กี่ชั่วโมง PPI อีก 12 ชม.ข้างหน้า รอสองด่านนี้ก่อนเพิ่มความเสี่ยง"}}</script>
+<script>
+// สเกล regime · ซ้าย→ขวา: Risk-Off → Defensive → Mixed → Risk-On
+const RG_ORDER=["Risk-Off","Defensive","Mixed","Risk-On"];
+const RG_POS  ={"Risk-Off":8,"Defensive":36,"Mixed":64,"Risk-On":92};
+const RG_CLS  ={"Risk-Off":"rg-off","Defensive":"rg-def","Mixed":"rg-mix","Risk-On":"rg-on"};
+// คำอธิบายโหมด (Risk-On/Off/Mixed ตามสูตรใน prompt · Defensive prompt ยังไม่นิยาม)
+const RG_DEF=[
+  ["Risk-Off",  "m-off","<span class='dn'>(−)</span>Stock + <span class='up'>(+)</span>XAU + <span class='up'>Strong</span> USD — Haven ครบทั้งคู่ หนีเข้าสินทรัพย์ปลอดภัยเต็มตัว"],
+  ["Defensive", "m-def","<span class='dn'>(−)</span>Stock แต่ <span class='pt'>(/)</span>XAU or USD — ลดความเสี่ยง ยังไม่แห่หนี (หรือ Haven ก่อตัวก่อน Stock แตก)"],
+  ["Mixed",     "m-mix","สัญญาณไม่ไปทางเดียวกัน ไม่มีทิศทางชัด"],
+  ["Risk-On",   "m-on", "<span class='up'>(+)</span>Stock + <span class='dn'>(−)</span>Haven — ตลาดกล้าเสี่ยง เงินเข้าสินทรัพย์เสี่ยง"]
+];
+function rgTicks(cur){
+  return RG_ORDER.map(r=>'<span class="'+(r===cur?"act":"")+'">'+r.toUpperCase()+'</span>').join("");
+}
+function rgDefBox(){
+  return '<div class="rgdef">'+
+    '<div class="dt">MODE</div><ul>'+
+    RG_DEF.map(([n,c,d])=>'<li class="'+c+'"><b>'+n.toUpperCase()+'</b><span>'+d+'</span></li>').join("")+
+    '</ul>'+
+    '<div class="hv">Haven: XAU, USD</div>'+
+  '</div>'+
+  '<div class="awnote">\u25c7 All Weather box regime — อยู่ระหว่างพิจารณา (ยังไม่ imp), อิงจากราคาจริง</div>';
+}
+function renderNote(E){
+  const host=document.getElementById("enote"); if(!host) return;
+  const txt=(E&&E.note)?E.note:"";
+  host.innerHTML=
+    `<div class="eh"><span class="et">EDITOR NOTE</span><button id="en-edit">${txt?"\u270e แก้":"+ เพิ่มโน้ต"}</button></div>`+
+    `<div class="ebody ${txt?"":"empty"}" id="en-body">${txt?esc(txt):"— ยังไม่มีโน้ต (โน้ตส่วนตัว ไม่ยุ่งกับ prompt/รายงาน) —"}</div>`;
+  const id=E?E.report_id:null;
+  document.getElementById("en-edit").addEventListener("click",()=>startNoteEdit(id, txt));
+}
+function startNoteEdit(id, cur){
+  const host=document.getElementById("enote"); if(!host) return;
+  host.innerHTML=
+    `<div class="eh"><span class="et">EDITOR NOTE</span></div>`+
+    `<textarea id="en-ta" placeholder="พิมพ์โน้ตของคุณ…"></textarea>`+
+    `<div class="eact"><button class="save" id="en-save">SAVE</button><button id="en-cancel">CANCEL</button></div>`;
+  const ta=document.getElementById("en-ta"); ta.value=cur||""; ta.focus();
+  document.getElementById("en-cancel").addEventListener("click",()=>renderNote(window.__curEntry));
+  document.getElementById("en-save").addEventListener("click",async()=>{
+    await setReportNote(id, ta.value);
+    renderNote(window.__curEntry);
+  });
+}
+function startTitleRename(id){
+  const wrap=document.getElementById("doctitle"); const btn=document.getElementById("rn-title");
+  if(!wrap || document.getElementById("dt-input")) return;
+  const cur=wrap.textContent.trim();
+  const inp=document.createElement("input"); inp.id="dt-input"; inp.className="sys-title-input"; inp.value=cur;
+  wrap.style.display="none"; if(btn)btn.style.visibility="hidden";
+  wrap.parentNode.insertBefore(inp,wrap.nextSibling); inp.focus(); inp.select();
+  let done=false;
+  const finish=async save=>{ if(done)return; done=true;
+    if(save){ await renameReport(id, inp.value);
+              window.__curEntry=await getEntry(id); renderReport(window.__currentDoc); }
+    else { inp.remove(); wrap.style.display=""; if(btn)btn.style.visibility=""; } };
+  inp.addEventListener("keydown",e=>{ if(e.key==="Enter"){e.preventDefault();finish(true);} if(e.key==="Escape"){e.preventDefault();finish(false);} });
+  inp.addEventListener("blur",()=>finish(true));
+}
+function renderReport(DATA){
+
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt=v=>(v>0?"+":"")+v.toFixed(2);
+const cls=v=>v>=0.2?"pos":v<=-0.2?"neg":"neu";
+/* ascii bar: 20 cells spanning -1..+1 */
+function bar(v){
+  const cells=20, mid=cells/2, n=Math.round(Math.abs(v)*mid);
+  let s="";
+  for(let i=0;i<cells;i++){
+    const lit = v<0 ? (i>=mid-n&&i<mid) : (i>=mid&&i<mid+n);
+    s+=lit?`<span class="fill ${cls(v)}">█</span>`:`<span class="empty">${i===mid?"│":"·"}</span>`;
+  }
+  return s;
+}
+
+/* ── EMPTY / ERROR STATE ─────────────────────────────
+   No data pasted yet → show a clean placeholder, skip rendering. */
+if(!DATA || DATA.__error){
+  const msg = DATA && DATA.__error
+    ? `ข้อมูล JSON ไม่ถูกต้อง — ${esc(DATA.__error)}`
+    : "ยังไม่มีข้อมูล — วาง JSON แล้วกด RENDER (หรือ LOAD SAMPLE)";
+  document.getElementById("systitle").innerHTML =
+    `<span class="sysname">JANUS://SENTIMENT</span> <span class="sep">_</span> <span class="doc">—</span>`;
+  document.getElementById("tmeta").innerHTML =
+    `<div class="id">papyrus.——.————</div><div class="verline"><span class="lbl">ver:</span> —</div>`;
+  const _sel0=document.getElementById("tz-main"); if(_sel0)_sel0.value=window.__tzMode||"th";
+  document.getElementById("awin").textContent = "WINDOW —";
+  document.getElementById("status").innerHTML = `
+    <div class="rgcard">
+      <div class="rgtop">
+        <div><div class="k">SENTIMENT TONE</div><div class="v">—</div>
+          <div class="rgsub">การประเมินอารมณ์ตลาดจากข่าว</div></div>
+        <div class="cvbox"><div class="k">CONVICTION</div><div class="cvv">—</div>
+          <div class="cvdesc">ระดับความเชื่อมั่นในการประเมินภาวะอารมณ์ตลาด</div></div>
+      </div>
+      <div class="track"></div>
+      <div class="ticks">${rgTicks(null)}</div>
+      ${rgDefBox()}
+    </div>`;
+  const _en0=document.getElementById("enote"); if(_en0)_en0.innerHTML="";
+  document.getElementById("alert").innerHTML =
+    `<div class="t">⚠ ONE-LINE RISK READ</div><p class="thai" style="opacity:.6">${msg}</p>`;
+  document.getElementById("foot").innerHTML =
+    `SCHEMA JANUS.REPORT · EMPTY`;
+  return false; // stops the rest of the script cleanly
+}
+
+const M=DATA.meta, rs=DATA.risk_summary;
+const E=window.__curEntry||{report_id:M.report_id,generated:M.generated,title:null,note:""};
+const verS = DATA.ver===(window.PAST||"2026.07.00.past") ? "PAST" : (DATA.ver||"—");
+// sys-title: JANUS://SENTIMENT _ <title> (แก้ได้)
+document.getElementById("systitle").innerHTML=
+  `<span class="sysname">JANUS://SENTIMENT</span> <span class="sep">_</span> `+
+  `<span class="doc" id="doctitle">${esc(titleCoreU(E))}</span>`+
+  `<button class="rn" id="rn-title" title="แก้ชื่อ">\u270e</button>`;
+// tmeta: id · ver  (TZ select เป็น static นอก #tmeta — ห้าม re-render ไม่งั้น iOS ตัดการเลือกทิ้ง)
+document.getElementById("tmeta").innerHTML=
+  `<div class="id">${esc(M.report_id)}</div>`+
+  `<div class="verline"><span class="lbl">ver:</span> ${esc(verS)}</div>`;
+const _sel=document.getElementById("tz-main"); if(_sel)_sel.value=window.__tzMode||"th";
+const _rn=document.getElementById("rn-title"); if(_rn)_rn.addEventListener("click",()=>startTitleRename(E.report_id));
+document.getElementById("awin").textContent="WINDOW "+M.news_window.toUpperCase();
+const _rgc = RG_CLS[rs.regime] || "rg-na";
+const _pos = RG_POS[rs.regime];
+document.getElementById("status").innerHTML=`
+  <div class="rgcard ${_rgc}">
+    <div class="rgtop">
+      <div><div class="k">SENTIMENT TONE</div><div class="v ${_rgc}">${esc(rs.regime.toUpperCase())}</div>
+        <div class="rgsub">การประเมินอารมณ์ตลาดจากข่าว</div></div>
+      <div class="cvbox"><div class="k">CONVICTION</div>
+        <div class="cvv">${esc(rs.conviction.toUpperCase())}</div>
+        <div class="cvdesc">ระดับความเชื่อมั่นในการประเมินภาวะอารมณ์ตลาด</div></div>
+    </div>
+    <div class="track">${_pos!=null?`<div class="pin ${_rgc}" style="left:${_pos}%"></div>`:""}</div>
+    <div class="ticks">${rgTicks(rs.regime)}</div>
+    ${rgDefBox()}
+  </div>`;
+renderNote(E);
+
+/* MARKET SUMMARY (bulleted stories) + ONE-LINE, one merged card */
+const mb = DATA.macro_backdrop;
+const mbItems = Array.isArray(mb) ? mb : (mb ? [mb] : []);
+const sumHTML = mbItems.length
+  ? `<div class="sumhd">MARKET SUMMARY</div>
+     <ul class="sum">${mbItems.map(x=>`<li class="thai">${esc(x)}</li>`).join("")}</ul>
+     <hr class="divhr">`
+  : "";
+document.getElementById("alert").innerHTML=`
+  ${sumHTML}
+  <div class="t">⚠ ONE-LINE RISK READ</div>
+  <p class="thai">${esc(rs.one_line)}</p>`;
+
+document.getElementById("assets").innerHTML=DATA.asset_reports.map(a=>{
+  /* mobile: stacked cards */
+  const logs=a.articles.map(ar=>`
+    <div class="logline">
+      <div class="lh">${esc(ar.headline)} ${ar.context_type==="Shared"?'<span class="tagS">SHARED</span>':''}</div>
+      <div class="lm">${esc(ar.source)} · ${esc(window.__fmtShort(ar.date))} · H:<span class="sent ${esc(ar.headline_sentiment)}">${ar.headline_sentiment.slice(0,3).toUpperCase()}</span> → B:<span class="sent ${esc(ar.body_sentiment)}">${ar.body_sentiment.slice(0,3).toUpperCase()}</span> · ${esc(ar.alignment)} · <span class="num ${cls(ar.score)}">${fmt(ar.score)}</span> · CONF ${ar.confidence}%</div>
+      <div class="lq thai">"${esc(ar.supporting_phrase)}"</div>
+    </div>`).join("");
+  /* desktop: article table — DATE/SOURCE/HEADLINE/CTX merged, sentiments abbreviated */
+  const ab = x => x==="Neutral" ? "NEUTRAL" : x.slice(0,3).toUpperCase();  // POS / NEG abbreviate; NEUTRAL whole
+  const logtable=`<table class="artt">
+    <colgroup><col class="c-meta"><col class="c-art"><col class="c-h"><col class="c-b"><col class="c-al"><col class="c-sc"><col class="c-cf"><col class="c-ph"></colgroup>
+    <thead><tr>
+      <th class="h-date">DATE</th>
+      <th>HEADLINE</th>
+      <th>HEAD</th><th>BODY</th><th>ALIGN</th>
+      <th class="r">SCORE</th><th class="r">CONF</th>
+      <th>SUPPORTING PHRASE</th>
+    </tr></thead>
+    <tbody>${a.articles.map(ar=>`<tr>
+      <td class="meta">
+        <div class="dt">${esc(window.__fmtD(ar.date))}</div>
+        <div class="cx">${ar.context_type==="Shared"?'<span class="tagS">SHARED</span>':'Asset spec.'}</div>
+      </td>
+      <td class="art">
+        <div class="hl">${esc(ar.headline)}</div>
+        <div class="so">${esc(ar.source)}</div>
+      </td>
+      <td class="sent pin ${esc(ar.headline_sentiment)}">${ab(ar.headline_sentiment)}</td>
+      <td class="sent pin ${esc(ar.body_sentiment)}">${ab(ar.body_sentiment)}</td>
+      <td class="pin">${esc(ar.alignment.toUpperCase())}</td>
+      <td class="num pin ${cls(ar.score)}">${fmt(ar.score)}</td>
+      <td class="cf pin">${ar.confidence}%</td>
+      <td class="ph">${esc(ar.supporting_phrase)}</td>
+    </tr>`).join("")}</tbody></table>`;
+  return `
+  <div class="arow">
+    <div class="l1">
+      <span class="aname">${esc(a.asset.toUpperCase())}<small>${a.sources_analyzed} SRC</small></span>
+      <span class="ascii">${bar(a.mean_score)}<span class="num ${cls(a.mean_score)}">${fmt(a.mean_score)}</span></span>
+    </div>
+    <div class="l2">
+      <span>SENT <b class="sent ${esc(a.dominant_sentiment)}">${esc(a.dominant_sentiment.toUpperCase())}</b></span>
+      <span>EMO <b>${esc(a.emotion_theme.toUpperCase())}</b></span>
+      <span>CONF <b>${a.analyst_confidence}%</b></span>
+    </div>
+    <div class="drv thai">
+      ${a.top_positive_drivers.map(d=>`<div class="d p"><i>+</i><span>${esc(d)}</span></div>`).join("")}
+      ${a.top_negative_drivers.map(d=>`<div class="d n"><i>−</i><span>${esc(d)}</span></div>`).join("")}
+    </div>
+    <div class="impl thai"><b>IMPLICATION</b>${esc(a.implication)}</div>
+    <details class="log"><summary>ARTICLE LOG [${a.articles.length}]</summary>
+      <div class="log-cards">${logs}</div>
+      <div class="log-table">${logtable}</div>
+    </details>
+  </div>`;
+}).join("");
+
+const byC=Object.fromEntries(DATA.fx_overview.currencies.map(c=>[c.ccy,c]));
+document.getElementById("fx").innerHTML=
+  DATA.fx_overview.ranking_strong_to_weak.map((c,i)=>{const f=byC[c];const b=f.bias==="Bullish"?"BULL":"BEAR";return `
+  <div class="fxr">
+    <span class="rk">${String(i+1).padStart(2,"0")}</span>
+    <span class="cc">${esc(f.ccy)}<small>${esc(f.proxy)}${f.inverted?" INV":""}</small></span>
+    <span class="bs ${b}">${b==="BULL"?"▲":"▼"} ${b}</span>
+    <span class="dv thai">${esc(f.driver)}</span>
+  </div>`}).join("")+
+  `<div class="rankline">RANK&nbsp; <b>${DATA.fx_overview.ranking_strong_to_weak.join(" › ")}</b></div>`;
+
+const cols=M.assets;
+const cell=v=>v==="watch"?'<span class="expv w">WATCH</span>':`<span class="expv ${v>0?"p":v<0?"n":"z"}">${v>0?"+":""}${v}</span>`;
+document.getElementById("risk").innerHTML=`
+  <thead><tr><th>RISK FACTOR</th>${cols.map(a=>`<th>${esc(a.toUpperCase())}</th>`).join("")}</tr></thead>
+  <tbody>${rs.risk_factors.map(r=>`<tr>
+    <td><div class="rname">${esc(r.name)}</div><div class="rst ${esc(r.status.toUpperCase())}">● ${esc(r.status.toUpperCase())}</div></td>
+    ${cols.map(a=>`<td>${cell(r.exposures[a])}</td>`).join("")}</tr>`).join("")}</tbody>`;
+document.getElementById("flip").innerHTML=`<b>REGIME-FLIP TRIGGER</b><span class="thai">${esc(rs.flip_trigger)}</span>`;
+
+const x=DATA.cross_asset;
+document.getElementById("xa").innerHTML=`
+  <div class="note thai"><b>SHARED DRIVERS</b>${esc(x.shared_macro_drivers)}</div>
+  <div class="note thai"><b>DIVERGENCE</b>${esc(x.divergence_note)}</div>
+  <div class="note thai"><b>KEY INSIGHT</b>${esc(x.key_insight)}</div>`;
+
+/* desktop: article tables are open by default — no tapping needed on a big screen */
+if(window.matchMedia && window.matchMedia("(min-width:1000px)").matches){
+  document.querySelectorAll("details.log").forEach(d=>d.open=true);
+}
+
+document.getElementById("foot").innerHTML=
+  `SCHEMA ${esc(DATA.schema).toUpperCase()} · LANG ${esc(M.language).toUpperCase()} · GEN ${esc(M.generator)}<br>NEWS WINDOW ${esc(M.news_window)} · ${esc(window.__fmtD(M.generated))}`;
+
+  return true;
+}
+</script>
+<script>
+(function(){
+  const BASKET=["USD","EUR","CHF","JPY","AUD","CAD","THB"], INV=new Set(["CHF","JPY","CAD","THB"]);
+  const SENT=["Positive","Negative","Neutral"], ALIGN=["Aligned","Partial","Contradictory"],
+        EMO=["Optimism","Greed","Relief","Caution","Fear","Uncertainty"],
+        BIAS=["Bullish","Neutral","Bearish"], REG=["Risk-On","Risk-Off","Mixed","Defensive"],
+        CONV=["High","Medium","Low"], STAT=["Active","Unresolved","Upcoming","Resolved"],
+        CTX=["Asset-Specific","Shared"];
+  const isInt=n=>typeof n==="number"&&Number.isInteger(n);
+  const isNum=n=>typeof n==="number"&&isFinite(n);
+  function validate(d){
+    const E=[],W=[]; const er=(p,m)=>E.push({p,m}), wr=(p,m)=>W.push({p,m});
+    if(!d||typeof d!=="object"){er("(root)","not a JSON object");return{E,W};}
+    if(d.schema==="janus.report"){}
+    else if(d.schema==="janus.daily.v1"||d.schema==null) wr("schema","legacy/absent → treat as ver 2026.07.00.past");
+    else er("schema",'unexpected "'+d.schema+'"');
+    if(d.ver && !/^\d{4}\.\d{2}\.\d{2}\.[A-Za-z]+$/.test(d.ver)) er("ver",'bad format "'+d.ver+'"');
+    if(!d.ver) wr("ver","missing → 2026.07.00.past");
+    const M=d.meta||{};
+    ["report_id","tz","generated","news_window","assets","language","generator"].forEach(k=>{ if(M[k]==null) er("meta."+k,"required"); });
+    if(M.generated && !/([+-]\d{2}:\d{2}|Z)$/.test(M.generated)) er("meta.generated","must end with ISO offset (e.g. +07:00)");
+    if(M.report_id && !/^papyrus\.\d{4}-\d{2}-\d{2}\.\d{4}$/.test(M.report_id)) er("meta.report_id","pattern papyrus.YYYY-MM-DD.HHMM");
+    const assets=Array.isArray(M.assets)?M.assets:[];
+    if(!assets.length) er("meta.assets","need ≥1");
+    const ar=Array.isArray(d.asset_reports)?d.asset_reports:(er("asset_reports","array required"),[]);
+    ar.forEach((a,i)=>{ const P="asset_reports["+i+"]";
+      if(!isNum(a.mean_score)||a.mean_score<-1||a.mean_score>1) er(P+".mean_score","−1..+1");
+      else{ const b=a.mean_score>=0.2?"Positive":a.mean_score<=-0.2?"Negative":"Neutral";
+            if(a.dominant_sentiment!==b) er(P+".dominant_sentiment",'"'+a.dominant_sentiment+'" ≠ mean band '+b+" (mean "+a.mean_score+")"); }
+      if(!SENT.includes(a.dominant_sentiment)) er(P+".dominant_sentiment","enum");
+      if(!EMO.includes(a.emotion_theme)) er(P+".emotion_theme","enum");
+      if(!isInt(a.analyst_confidence)||a.analyst_confidence<0||a.analyst_confidence>100) er(P+".analyst_confidence","int 0..100");
+      if(a.timeframe && !/^\d{4}-\d{2}-\d{2}\/\d{4}-\d{2}-\d{2}$/.test(a.timeframe)) er(P+".timeframe","YYYY-MM-DD/YYYY-MM-DD");
+      if(assets.length && a.asset!==assets[i]) er(P+".asset",'order ≠ meta.assets['+i+'] ("'+assets[i]+'")');
+      (a.articles||[]).forEach((t,j)=>{ const Q=P+".articles["+j+"]";
+        if(t.date && !/Z$/.test(t.date)) er(Q+".date","UTC ...Z");
+        [["headline_sentiment",SENT],["body_sentiment",SENT],["alignment",ALIGN],["context_type",CTX]].forEach(([k,set])=>{ if(!set.includes(t[k])) er(Q+"."+k,"enum"); });
+        if(!isNum(t.score)||t.score<-1||t.score>1) er(Q+".score","−1..+1");
+        if(!isInt(t.confidence)||t.confidence<0||t.confidence>100) er(Q+".confidence","int 0..100");
+        if(t.supporting_phrase && String(t.supporting_phrase).trim().split(/\s+/).length>25) er(Q+".supporting_phrase","≤25 words");
+        // R8 score must fall inside the range implied by the two labels
+        //    label thresholds: Positive >= +0.20, Negative <= -0.20, Neutral in between
+        const RNG={Positive:[0.20,1.0],Neutral:[-0.20,0.20],Negative:[-1.0,-0.20]};
+        if(SENT.includes(t.headline_sentiment)&&SENT.includes(t.body_sentiment)&&isNum(t.score)){
+          const H=RNG[t.headline_sentiment],B=RNG[t.body_sentiment];
+          const lo=+(0.3*H[0]+0.7*B[0]).toFixed(2), hi=+(0.3*H[1]+0.7*B[1]).toFixed(2);
+          if(t.score<lo-0.005||t.score>hi+0.005)
+            er(Q+".score",t.score+" outside range for "+t.headline_sentiment+"/"+t.body_sentiment+" ("+lo+" .. "+hi+")");
+        }
+        // R9 confidence cannot exceed its alignment ceiling (0.9 source x 1.0 clarity x alignment mult)
+        const AM={Aligned:1.0,Partial:0.75,Contradictory:0.4}[t.alignment];
+        if(AM&&isInt(t.confidence)){
+          const cap=Math.round(100*0.9*AM);
+          if(t.confidence>cap) er(Q+".confidence",t.confidence+"% exceeds ceiling "+cap+"% for alignment "+t.alignment);
+        }
+        // R10 alignment must match the two labels
+        if(SENT.includes(t.headline_sentiment)&&SENT.includes(t.body_sentiment)&&t.alignment){
+          const sign=x=>x==="Positive"?1:x==="Negative"?-1:0;
+          const a=sign(t.headline_sentiment),b=sign(t.body_sentiment);
+          const want = (a===b)?"Aligned" : (a*b<0)?"Contradictory":"Partial";
+          if(t.alignment!==want) er(Q+".alignment",'"'+t.alignment+'" but '+t.headline_sentiment+"/"+t.body_sentiment+" implies "+want);
+        }
+      });
+    });
+    const fx=d.fx_overview||{};
+    const cur=Array.isArray(fx.currencies)?fx.currencies:(er("fx_overview.currencies","array required"),[]);
+    if(cur.length!==7) er("fx_overview.currencies","need 7, got "+cur.length);
+    cur.forEach((c,i)=>{ const P="fx_overview.currencies["+i+"]";
+      if(!BASKET.includes(c.ccy)) er(P+".ccy","enum");
+      if(typeof c.inverted!=="boolean") er(P+".inverted","boolean");
+      else if(BASKET.includes(c.ccy) && c.inverted!==INV.has(c.ccy)) er(P+".inverted",c.ccy+" should be "+INV.has(c.ccy));
+      if(!BIAS.includes(c.bias)) er(P+".bias","enum");
+    });
+    const rk=Array.isArray(fx.ranking_strong_to_weak)?fx.ranking_strong_to_weak:(er("fx_overview.ranking_strong_to_weak","array required"),[]);
+    if(rk.length!==7||new Set(rk).size!==7||!rk.every(x=>BASKET.includes(x))) er("fx_overview.ranking_strong_to_weak","must be all 7 currencies, each once");
+    const xa=d.cross_asset||{};
+    ["shared_macro_drivers","divergence_note","key_insight"].forEach(k=>{ if(xa[k]==null) er("cross_asset."+k,"required"); });
+    if(!Array.isArray(d.macro_backdrop)||!d.macro_backdrop.length) er("macro_backdrop","array ≥1");
+    const rs=d.risk_summary||{};
+    if(!REG.includes(rs.regime)) er("risk_summary.regime","enum");
+    if(!CONV.includes(rs.conviction)) er("risk_summary.conviction","enum");
+    (rs.risk_factors||[]).forEach((r,i)=>{ const P="risk_summary.risk_factors["+i+"]";
+      if(!STAT.includes(r.status)) er(P+".status","enum");
+      const ex=r.exposures||{};
+      Object.keys(ex).forEach(k=>{ if(!assets.includes(k)) er(P+".exposures."+k,"key ∉ meta.assets");
+        const v=ex[k]; if(v!=="watch" && !(isInt(v)&&v>=-3&&v<=3)) er(P+".exposures."+k,"int −3..+3 or 'watch'");
+        if(r.status==="Upcoming" && v!=="watch") wr(P+".exposures."+k,"Upcoming → expected 'watch'"); });
+    });
+    // R11 no keys outside the contract
+    const ALLOWED={
+      "":["schema","ver","meta","asset_reports","fx_overview","macro_backdrop","cross_asset","risk_summary"],
+      "meta":["report_id","tz","generated","news_window","assets","language","generator"],
+      "asset_reports[]":["asset","timeframe","sources_analyzed","mean_score","dominant_sentiment","emotion_theme","analyst_confidence","articles","top_positive_drivers","top_negative_drivers","implication"],
+      "articles[]":["date","source","headline","url","headline_sentiment","body_sentiment","alignment","score","confidence","supporting_phrase","context_type"],
+      "fx_overview":["currencies","ranking_strong_to_weak"],
+      "currencies[]":["ccy","proxy","inverted","bias","driver"],
+      "cross_asset":["shared_macro_drivers","divergence_note","key_insight"],
+      "risk_summary":["narrative","regime","conviction","risk_factors","flip_trigger","one_line"],
+      "risk_factors[]":["name","status","exposures"]
+    };
+    const extra=(obj,allow,path)=>{ if(!obj||typeof obj!=="object") return;
+      Object.keys(obj).forEach(k=>{ if(!allow.includes(k)) er(path?path+"."+k:k,"unknown key (not in contract)"); }); };
+    extra(d,ALLOWED[""],"");
+    extra(d.meta,ALLOWED["meta"],"meta");
+    ar.forEach((a,i)=>{ extra(a,ALLOWED["asset_reports[]"],"asset_reports["+i+"]");
+      (a.articles||[]).forEach((t,j)=>extra(t,ALLOWED["articles[]"],"asset_reports["+i+"].articles["+j+"]")); });
+    extra(fx,ALLOWED["fx_overview"],"fx_overview");
+    cur.forEach((c,i)=>extra(c,ALLOWED["currencies[]"],"fx_overview.currencies["+i+"]"));
+    extra(xa,ALLOWED["cross_asset"],"cross_asset");
+    extra(rs,ALLOWED["risk_summary"],"risk_summary");
+    (rs.risk_factors||[]).forEach((r,i)=>extra(r,ALLOWED["risk_factors[]"],"risk_summary.risk_factors["+i+"]"));
+    return {E,W};
+  }
+  window.__validate=validate;
+})();
+</script>
+<script>
+const NS="papyrus", KDOC=id=>NS+":doc:"+id, KIX=NS+":index", KUM=NS+":usermeta", KCARD=NS+":card", DOCPFX=NS+":doc:";
+const CONTRACT_VER="2026.07.22.A", PAST="2026.07.00.past";
+window.PAST=PAST;                                 // ให้ block อื่น (renderReport) อ้างถึงค่าเดียวกันได้จริง
+
+/* ── canonical stringify (key order คงที่) — ใช้เทียบ identical ข้าม backend ──
+   Firestore ไม่รับประกันลำดับ key ตอนอ่านกลับ เทียบ JSON.stringify ตรง ๆ ไม่ได้ */
+function canon(o){
+  if(o===null||typeof o!=="object") return JSON.stringify(o);
+  if(Array.isArray(o)) return "["+o.map(canon).join(",")+"]";
+  return "{"+Object.keys(o).sort().map(k=>JSON.stringify(k)+":"+canon(o[k])).join(",")+"}";
+}
+
+/* ══ STORE adapter — driver เดียวกันหมด: get/set/del/list รับ-คืน "object" ══
+   artifact  : window.storage (dev ใน Claude artifact) — ค่าเป็น string ต้อง parse
+   firestore : ตัวจริงบน GitHub Pages — inject ผ่าน window.__PAPYRUS_FB
+   memory    : เปิดเป็นไฟล์ธรรมดา (ทดสอบ/ดูอย่างเดียว)                        */
+const STORE=(function(){
+  let D=null;                                      // resolve ตอนใช้ครั้งแรก (ทน injection ที่มาทีหลัง)
+  function pick(){
+  const FB=window.__PAPYRUS_FB;
+  if(FB&&FB.db&&FB.user&&FB.user.uid){             // ── firestore driver ──
+    // Athenaeum contract §3: ทุก path ต้องอยู่ใต้ users/<uid>/apps/papyrus/ เท่านั้น
+    // (multi-user — แต่ละคน login แยกกัน เห็นแค่คลังของตัวเอง)
+    const base=["users",FB.user.uid,"apps","papyrus"];
+    const path=k=> k===KIX   ? {c:"meta",  d:"index"}
+                 : k===KUM   ? {c:"meta",  d:"usermeta"}
+                 : k===KCARD ? {c:"meta",  d:"card"}
+                 : {c:"reports",d:k.slice(DOCPFX.length)};
+    return { mode:"firestore",
+      async get(k){ const p=path(k); const snap=await FB.getDoc(FB.doc(FB.db,...base,p.c,p.d));
+                    return snap.exists() ? (snap.data().v!==undefined?snap.data().v:snap.data()) : null; },
+      async set(k,v){ const p=path(k); await FB.setDoc(FB.doc(FB.db,...base,p.c,p.d), Array.isArray(v)?{v:v}:v); },
+      async del(k){ const p=path(k); await FB.deleteDoc(FB.doc(FB.db,...base,p.c,p.d)); },
+      async list(pfx){ if(pfx!==DOCPFX) return [];
+                       const qs=await FB.getDocs(FB.collection(FB.db,...base,"reports"));
+                       const out=[]; qs.forEach(d=>out.push(DOCPFX+d.id)); return out; } };
+  }
+  if(window.storage){                              // ── artifact driver ──
+    return { mode:"artifact",
+      async get(k){ try{ const r=await window.storage.get(k); return r?JSON.parse(r.value):null; }catch(e){ return null; } },
+      async set(k,v){ const r=await window.storage.set(k, JSON.stringify(v));
+                      if(!r) throw new Error("storage.set returned null (rate limit / size?)"); },
+      async del(k){ try{ await window.storage.delete(k); }catch(e){} },
+      async list(pfx){ const r=await window.storage.list(pfx); return (r&&r.keys)||[]; } };
+  }
+  const m=new Map();                               // ── memory driver ──
+  return { mode:"memory",
+    async get(k){ return m.has(k)?JSON.parse(m.get(k)):null; },
+    async set(k,v){ m.set(k,JSON.stringify(v)); },
+    async del(k){ m.delete(k); },
+    async list(pfx){ return [...m.keys()].filter(k=>!pfx||k.startsWith(pfx)); } };
+  }
+  const better=()=>!!(window.storage||(window.__PAPYRUS_FB&&window.__PAPYRUS_FB.db&&window.__PAPYRUS_FB.user&&window.__PAPYRUS_FB.user.uid));
+  const d=()=>{                                    // memory = fallback ชั่วคราว
+    if(!D || (D.mode==="memory" && better())) D=pick();   // เจอ backend จริงทีหลัง → ยกระดับ
+    return D; };
+  return { get mode(){ return d().mode; },
+    get:k=>d().get(k), set:(k,v)=>d().set(k,v), del:k=>d().del(k), list:p=>d().list(p) };
+})();
+Object.defineProperty(window,"__storeMode",{get:()=>STORE.mode,configurable:true});
+
+const _napMs=ms=>new Promise(r=>setTimeout(r,ms));
+// เขียนแบบ retry: กัน transient storage error (rate limit / 500) ทำ import ตกทั้งที่ข้อมูลถูก
+async function setRetry(k,v,tries){
+  tries=tries||3; let last;
+  for(let a=0;a<tries;a++){
+    try{ await STORE.set(k,v); return; }
+    catch(e){ last=e; if(a<tries-1) await _napMs(200*(a+1)); }
+  }
+  throw last;
+}
+async function getIndex(){ const v=await STORE.get(KIX); return Array.isArray(v)?v:[]; }
+async function setIndex(ix){ await setRetry(KIX, ix); await writeCard(ix); }
+
+// maintain users/<uid>/apps/papyrus/meta/card (Athenaeum contract ข้อ 4)
+// เขียนทุกครั้งที่ index เปลี่ยน — นี่คือสิ่งเดียวที่ทำให้ portal เห็น tile ของ Papyrus
+// ล้มเหลวแบบไม่ทำลายอะไร: index เขียนสำเร็จไปแล้วก่อนหน้านี้ การ์ดพลาดไม่ควรทำให้ทั้ง flow throw
+async function writeCard(ix){
+  try{
+    await setRetry(KCARD, {
+      title: "Papyrus",
+      count: Array.isArray(ix) ? ix.length : 0,
+      updated: new Date().toISOString(),
+      status: "ok"
+    });
+  }catch(e){ console.warn("[papyrus] write meta/card failed (non-fatal)", e); }
+}
+
+/* ══ usermeta sidecar — title/note ที่ "ทน" กว่า index ══
+   index สร้างใหม่ได้เสมอจาก doc (REBUILD INDEX) → title/note ที่ฝากไว้ในนั้นอย่างเดียวหายได้
+   usermeta ไม่ผูกกับ index เลย จึงรอด: rebuild / save ซ้ำ / import bundle ข้ามเครื่อง        */
+async function getUserMeta(){ const v=await STORE.get(KUM); return (v&&typeof v==="object"&&!Array.isArray(v))?v:{}; }
+async function setUserMeta(um){ await setRetry(KUM, um); }
+async function touchUserMeta(id, patch){
+  const um=await getUserMeta();
+  const next={...(um[id]||{}), ...patch};
+  const empty = (next.title==null) && !next.note;
+  if(empty) delete um[id]; else um[id]=next;      // ไม่เก็บ entry ว่างเปล่า กัน sidecar บวม
+  await setUserMeta(um);
+}
+// merge usermeta จาก bundle เข้า local — ไม่ทับของที่ผู้ใช้เพิ่งตั้งไว้ในเครื่องนี้เอง
+async function mergeUserMeta(incoming){
+  if(!incoming || typeof incoming!=="object") return 0;
+  const um=await getUserMeta(); let added=0;
+  for(const [id,meta] of Object.entries(incoming)){
+    if(!meta) continue;
+    const cur=um[id], curHas = cur && (cur.title!=null || cur.note);
+    if(curHas) continue;                          // local มีอยู่แล้ว → ของผู้ใช้ในเครื่องนี้ชนะ
+    const t=meta.title!=null?meta.title:null, n=meta.note!=null?meta.note:"";
+    if(t!=null || n){ um[id]={title:t,note:n}; added++; }
+  }
+  if(added) await setUserMeta(um);
+  return added;
+}
+
+// title ที่จะแสดง: custom ถ้ามี, else default core (ตอบ tz)
+function titleCore(e){ return (e.title!=null && e.title!=="") ? e.title : window.__titleCore(e.generated); }
+function titleCoreU(e){ return (e.title!=null && e.title!=="") ? e.title : window.__titleCoreU(e.generated); }
+async function renameReport(id, val){
+  const ix=await getIndex(); const k=ix.findIndex(x=>x.report_id===id); if(k<0) return;
+  const t=(val==null)?null:String(val).trim();
+  const title=(t==="") ? null : t;           // ว่าง = กลับ default
+  ix[k].title = title;
+  await setIndex(ix);
+  await touchUserMeta(id, {title, note: ix[k].note||""});
+}
+async function setReportNote(id, val){
+  const ix=await getIndex(); const k=ix.findIndex(x=>x.report_id===id); if(k<0) return;
+  const note=String(val==null?"":val);
+  ix[k].note = note;
+  await setIndex(ix);
+  if(window.__curEntry && window.__curEntry.report_id===id) window.__curEntry.note=ix[k].note;
+  await touchUserMeta(id, {title: ix[k].title!=null?ix[k].title:null, note});
+}
+async function getEntry(id){ const ix=await getIndex(); return ix.find(x=>x.report_id===id)||null; }
+function indexEntry(d, prev){
+  // title/note = user-editable metadata (archive layer) · เก็บของเดิมไว้เมื่อ re-index
+  return { report_id:d.meta.report_id, generated:(d.meta.generated||""), assets:(d.meta.assets||[]),
+           ver:d.ver, regime:((d.risk_summary||{}).regime||""), n_assets:((d.asset_reports||[]).length),
+           title:(prev&&prev.title!=null)?prev.title:null, note:(prev&&prev.note!=null)?prev.note:"" };
+}
+function stamp(d){
+  if(d.schema!=="janus.report") d.schema="janus.report";
+  if(!d.ver) d.ver=PAST;
+  return d;
+}
+async function docExists(id){ return (await STORE.get(KDOC(id)))!==null; }
+
+async function saveDoc(d){                       // throws on storage failure
+  stamp(d);
+  const id=d.meta.report_id;
+  await setRetry(KDOC(id), d);
+  const ix=await getIndex();
+  const k=ix.findIndex(x=>x.report_id===id);
+  const um=(await getUserMeta())[id];              // usermeta ชนะ index เดิม ถ้ามี (ทนกว่า)
+  const prev = um ? {title: um.title!=null?um.title:null, note: um.note||""}
+                  : (k>=0 ? ix[k] : undefined);
+  const entry=indexEntry(d, prev);
+  if(k>=0) ix[k]=entry; else ix.push(entry);
+  await setIndex(ix);
+  return id;
+}
+async function getDoc(id){ try{ return await STORE.get(KDOC(id)); }catch(e){ return null; } }
+async function delDoc(id){ try{ await STORE.del(KDOC(id)); }catch(e){} const ix=(await getIndex()).filter(x=>x.report_id!==id); await setIndex(ix); }
+
+/* ── index rebuild (recover from corrupted/missing index) ── */
+async function rebuildIndex(){
+  const keys=await STORE.list(DOCPFX);
+  const um=await getUserMeta();                    // กู้ title/note กลับมาตอนสร้าง index ใหม่
+  const ix=[];
+  for(const k of keys){
+    try{ const d=await STORE.get(k);
+         if(d&&d.meta&&d.meta.report_id){
+           const meta=um[d.meta.report_id];
+           const prev=meta?{title:meta.title!=null?meta.title:null, note:meta.note||""}:undefined;
+           ix.push(indexEntry(d, prev));
+         } }
+    catch(e){ console.warn("rebuild skip",k,e); }
+  }
+  await setIndex(ix);
+  return ix.length;
+}
+
+/* ── export ── */
+function downloadText(name,text){
+  const b=new Blob([text],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download=name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),500);
+}
+async function exportDoc(id){
+  const d=await getDoc(id); if(!d){ note("bad",'<span class="vh">\u2717 export ไม่ได้ — ไม่พบ '+esc(id)+'</span>'); return; }
+  downloadText(id+".json", JSON.stringify(d,null,2));
+}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function exportAll(){
+  const ix=await getIndex(); if(!ix.length){ note("bad",'<span class="vh">\u2717 คลังว่าง — ไม่มีอะไร export</span>'); return; }
+  note("ok",'<span class="vh">\u2026 EXPORT ALL — กำลังอ่าน '+ix.length+' docs</span>');
+  const docs=[], missing=[];
+  for(const e of ix){
+    let d=null;
+    for(let a=0; a<3 && !d; a++){                    // retry: กัน rate limit ทำ doc หายเงียบ
+      d=await getDoc(e.report_id);
+      if(!d && a<2) await sleep(150*(a+1));
+    }
+    if(d) docs.push(d); else missing.push(e.report_id);
+  }
+  const um=await getUserMeta();
+  const bundle={ bundle:"papyrus.archive", exported:new Date().toISOString(),
+                 contract_ver:CONTRACT_VER, expected:ix.length, count:docs.length, docs, usermeta:um };
+  if(missing.length) bundle.missing=missing;         // ไฟล์บอกตัวเองได้ว่าขาดอะไร
+  const stampStr=new Date().toISOString().slice(0,16).replace(/[:T]/g,"").replace(/-/g,"");
+  downloadText("papyrus.archive."+stampStr+".json", JSON.stringify(bundle));   // minified
+  if(missing.length){
+    note("bad",'<span class="vh">\u26a0 EXPORT ALL — ไม่ครบ '+docs.length+'/'+ix.length+'</span><ul>'+
+      '<li>อ่านไม่ได้ '+missing.length+' docs (retry 3 ครั้งแล้ว) — ไฟล์บันทึกไว้ใน <code>missing[]</code></li>'+
+      missing.slice(0,5).map(x=>'<li><code>'+esc(x)+'</code></li>').join("")+
+      (missing.length>5?'<li>\u2026 อีก '+(missing.length-5)+'</li>':'')+
+      '<li><b>ลอง EXPORT ALL ซ้ำอีกครั้งเพื่อให้ได้ครบ</b></li></ul>');
+  } else {
+    note("ok",'<span class="vh">\u2713 EXPORT ALL — ครบ '+docs.length+'/'+ix.length+' docs</span>');
+  }
+}
+
+/* ── views ── */
+function show(v){
+  document.getElementById("view-list").style.display = v==="list"?"block":"none";
+  document.getElementById("view-doc").style.display  = v==="doc" ?"block":"none";
+}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ── regime → css class · Risk-On เขียว · Risk-Off แดง · Mixed เหลือง · Defensive ฟ้า ── */
+function regClass(r){ return {"Risk-On":"rg-on","Risk-Off":"rg-off","Mixed":"rg-mix","Defensive":"rg-def"}[r]||"rg-na"; }
+window.__regClass=regClass;
+
+/* ── in-page note + choice · confirm()/alert() ถูก block ใน artifact sandbox (ห้ามใช้) ── */
+function note(cls,html){ const s=document.getElementById("vstrip"); s.className=cls; s.innerHTML=html; }
+function askChoice(msgHtml,opts){            // opts=[{k,label}] → Promise<k>
+  return new Promise(res=>{
+    const s=document.getElementById("vstrip");
+    s.className="bad"; s.innerHTML=msgHtml+'<div class="ask"></div>';
+    const box=s.querySelector(".ask");
+    opts.forEach(o=>{ const btn=document.createElement("button"); btn.type="button"; btn.textContent=o.label;
+      btn.addEventListener("click",()=>{ box.remove(); res(o.k); }); box.appendChild(btn); });
+  });
+}
+
+function startCardRename(btn){
+  const row=btn.closest(".docrow"); const id=row.dataset.id;
+  const span=row.querySelector(".dr-title"); if(!span || row.querySelector(".dr-title-input")) return;
+  const cur=(span.dataset.title!=null?span.dataset.title:span.textContent.replace(/^Papyrus\s*/,"")).trim();
+  const inp=document.createElement("input"); inp.className="dr-title-input"; inp.value=cur;
+  span.style.display="none"; btn.style.visibility="hidden";
+  span.parentNode.insertBefore(inp,span.nextSibling); inp.focus(); inp.select();
+  let done=false;
+  const finish=async save=>{ if(done)return; done=true;
+    if(save){ await renameReport(id, inp.value); await refreshList(); }
+    else { inp.remove(); span.style.display=""; btn.style.visibility=""; } };
+  inp.addEventListener("keydown",e=>{ if(e.key==="Enter"){e.preventDefault();finish(true);} if(e.key==="Escape"){e.preventDefault();finish(false);} });
+  inp.addEventListener("blur",()=>finish(true));
+}
+async function refreshList(){
+  let ix=await getIndex();
+  // self-heal: index empty but docs exist → rebuild
+  if(!ix.length){
+    try{ const keys=await STORE.list(DOCPFX);
+         if(keys.length){ await rebuildIndex(); ix=await getIndex(); } }catch(e){}
+  }
+  ix.sort((a,b)=>((Date.parse(b.generated)||0)-(Date.parse(a.generated)||0)));
+  const host=document.getElementById("doclist");
+  document.getElementById("doccount").textContent=ix.length+" DOC"+(ix.length===1?"":"S");
+  if(!ix.length){ host.innerHTML='<div class="empty-list">ยังไม่มีเอกสารในคลัง — import JSON ด้านบนเพื่อเริ่ม (หรือกด LOAD SAMPLE)</div>'; return; }
+  const ICO_EXP='<svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>';
+  const ICO_DEL='<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  host.innerHTML=ix.map(e=>
+    '<div class="docrow '+regClass(e.regime)+'" data-id="'+esc(e.report_id)+'">'+
+      '<div class="dr-top">'+
+        '<div class="dr-titlerow">'+
+          '<span class="dr-title" data-title="'+esc(titleCore(e))+'"><span class="pfx">Papyrus</span> '+esc(titleCore(e))+'</span>'+
+          '<button class="dr-rename" data-id="'+esc(e.report_id)+'" title="แก้ชื่อ">\u270e</button>'+
+        '</div>'+
+        '<div class="dr-acts">'+
+          '<button class="dr-exp" data-id="'+esc(e.report_id)+'" title="export .json">'+ICO_EXP+'</button>'+
+          '<button class="dr-del" data-id="'+esc(e.report_id)+'" title="delete">'+ICO_DEL+'</button>'+
+        '</div>'+
+      '</div>'+
+      '<div class="dr-sub">'+e.n_assets+' assets · <span class="rgchip '+regClass(e.regime)+'">'+esc(e.regime||"—")+'</span></div>'+
+      '<div class="dr-meta">'+
+        '<span class="id">'+esc(e.report_id)+'</span>'+
+        '<span class="sep">·</span>'+
+        '<span><span class="lbl">ver</span> '+(e.ver===PAST?'<span class="tag-past">PAST</span>':'<span class="tag-ver">'+esc(e.ver)+'</span>')+'</span>'+
+      '</div>'+
+    '</div>').join("");
+  host.querySelectorAll(".docrow").forEach(el=>el.addEventListener("click",ev=>{
+    if(ev.target.closest(".dr-rename,.dr-exp,.dr-del")) return;  // ปุ่มต่าง ๆ ไม่เปิด doc
+    openDoc(el.dataset.id);
+  }));
+  host.querySelectorAll(".dr-rename").forEach(b=>b.addEventListener("click",ev=>{
+    ev.stopPropagation(); startCardRename(b);
+  }));
+  host.querySelectorAll(".dr-exp").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();exportDoc(b.dataset.id);}));
+  const BIN='<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg>';
+  const disarm=b=>{ clearTimeout(b.__t); b.dataset.step="0"; b.className="dr-del"; b.innerHTML=ICO_DEL; };
+  host.querySelectorAll(".dr-del").forEach(b=>b.addEventListener("click",async e=>{
+    e.stopPropagation();
+    const st=+(b.dataset.step||0);
+    host.querySelectorAll(".dr-del").forEach(o=>{ if(o!==b) disarm(o); });   // ติดอาวุธได้ทีละปุ่ม
+    clearTimeout(b.__t);
+    if(st<2){                                                               // step 1 → 2 → ลบ
+      b.dataset.step=String(st+1);
+      b.className="dr-del arm"+(st+1);
+      if(st===0) b.innerHTML=BIN; else b.textContent="DELETE";
+      b.__t=setTimeout(()=>disarm(b),4000);                                 // ไม่กดต่อใน 4 วิ = ยกเลิกเอง
+      return;
+    }
+    b.disabled=true; b.textContent="\u2026";
+    await delDoc(b.dataset.id);
+    await refreshList();
+  }));
+}
+
+async function openDoc(id){
+  const d=await getDoc(id); if(!d){ note("bad",'<span class="vh">\u2717 เปิดไม่ได้ — ไม่พบ '+esc(id)+'</span>'); return; }
+  window.__currentDoc=d;
+  window.__curEntry=await getEntry(id) || {report_id:id, generated:d.meta.generated, title:null, note:""};
+  renderReport(d); show("doc"); window.scrollTo({top:0,behavior:"smooth"});
+}
+
+/* ── import (single doc OR bundle) ── */
+(function(){
+  const ta=document.getElementById("jl-ta"), strip=document.getElementById("vstrip");
+  const line=x=>"<li><code>"+esc(x.p)+"</code> — "+esc(x.m)+"</li>";
+  function stripMsg(cls,html){ strip.className=cls; strip.innerHTML=html; }
+  function showValidation(res){
+    const E=res.E,W=res.W;
+    if(E.length){ stripMsg("bad",'<span class="vh">✗ CONTRACT — '+E.length+' error'+(E.length>1?'s':'')+(W.length?' · '+W.length+' note':'')+'</span>'+
+        '<ul>'+E.map(line).join("")+W.map(w=>'<li style="opacity:.7">note: <code>'+esc(w.p)+'</code> — '+esc(w.m)+'</li>').join("")+'</ul>');
+    } else { stripMsg("ok",'<span class="vh">✓ CONTRACT OK — janus.report '+CONTRACT_VER+(W.length?' · '+W.length+' note':'')+'</span>'+
+        (W.length?'<ul>'+W.map(line).join("")+'</ul>':'')); }
+  }
+
+  const CLONE=o=>JSON.parse(JSON.stringify(o));
+  let REJECTED=[];                                    // เก็บไว้ให้ปุ่ม EXPORT REJECTED
+  async function getRaw(id){ const d=await getDoc(id); return d===null?null:canon(d); }
+
+  async function importBundle(b){
+    if(!Array.isArray(b.docs)){ stripMsg("bad",'<span class="vh">✗ bundle ไม่มี docs[]</span>'); return; }
+    REJECTED=[];
+    const umAdded = b.usermeta ? await mergeUserMeta(b.usermeta) : 0;   // ก่อน save เพื่อให้ indexEntry เห็น title/note ที่ import มา
+    const fatal=[], rejected=[], grand=[], unchanged=[], conflict=[], fresh=[];
+
+    /* ── pre-scan: validate ตาม ver + แยก identical / different ── */
+    for(const d of b.docs){
+      const id=d&&d.meta&&d.meta.report_id;
+      if(!id){ fatal.push(d); continue; }
+      const docVer=(d&&d.ver)||PAST, strict=(docVer===CONTRACT_VER);
+      const res=window.__validate(d);
+      if(res.E.length){
+        if(strict){ rejected.push({id:id, errs:res.E, doc:d}); continue; }   // ver ปัจจุบัน = strict
+        grand.push({id:id, ver:docVer, n:res.E.length});                     // ver เก่า = grandfathered
+      }
+      const raw=await getRaw(id);
+      if(raw===null) fresh.push(d);
+      else if(raw===canon(stamp(CLONE(d)))) unchanged.push(id);              // ซ้ำแบบเหมือนเป๊ะ → ไม่ต้องถาม
+      else conflict.push(d);                                                 // ซ้ำแบบเนื้อหาต่าง → ต้องตัดสินใจ
+    }
+
+    /* ── ถามเฉพาะตัวที่เนื้อหาต่างจริง ── */
+    let policy="over";
+    if(conflict.length){
+      policy=await askChoice('<span class="vh">\u26a0 BUNDLE — ซ้ำแบบเนื้อหาต่าง '+conflict.length+' รายการ</span>'+
+        '<ul>'+conflict.slice(0,5).map(d=>'<li><code>'+esc(d.meta.report_id)+'</code></li>').join("")+
+        (conflict.length>5?'<li>\u2026 อีก '+(conflict.length-5)+'</li>':'')+
+        (unchanged.length?'<li style="opacity:.7">ซ้ำแบบเหมือนเดิม '+unchanged.length+' รายการ — ผ่านอัตโนมัติ</li>':'')+'</ul>',
+        [{k:"over",label:"OVERWRITE"},{k:"skip",label:"SKIP DUPES"},{k:"cancel",label:"CANCEL"}]);
+      if(policy==="cancel"){ stripMsg("bad",'<span class="vh">\u21b7 ยกเลิก — ไม่มีอะไรเข้าคลัง</span>'); return; }
+    }
+
+    /* ── เขียนเข้าคลัง ── */
+    let added=0,replaced=0,failed=0; const failIds=[];
+    const writeList = policy==="skip" ? fresh : fresh.concat(conflict);
+    for(const d of writeList){
+      const isNew = fresh.indexOf(d)>=0;
+      try{ await saveDoc(d); isNew?added++:replaced++; }
+      catch(e){ failed++; failIds.push(d.meta.report_id); console.error("bundle save",d.meta.report_id,e); }
+    }
+    const skipped = policy==="skip" ? conflict.length : 0;
+
+    /* ── รายงานรายตัว ── */
+    REJECTED=rejected;
+    const bad = rejected.length||failed||fatal.length;
+    let h='<span class="vh">'+(bad?'\u26a0':'\u2713')+' BUNDLE IMPORT</span><ul>'+
+      '<li>added '+added+' · overwritten '+replaced+' · unchanged '+unchanged.length+
+      ' · skipped '+skipped+
+      (rejected.length?' · <b>rejected '+rejected.length+'</b>':'')+
+      (failed?' · <b>failed '+failed+'</b>':'')+'</li>'+
+      (umAdded?'<li style="opacity:.75">\u21bb กู้ title/note จาก usermeta '+umAdded+' รายการ</li>':'');
+    rejected.forEach(r=>{ h+='<li>\u2717 <code>'+esc(r.id)+'</code> — '+esc(r.errs[0].p)+': '+esc(r.errs[0].m)+
+        (r.errs.length>1?' <span style="opacity:.7">(+'+(r.errs.length-1)+' error)</span>':'')+'</li>'; });
+    failIds.forEach(x=>{ h+='<li>\u2717 <code>'+esc(x)+'</code> — เขียนลงคลังไม่สำเร็จ (storage)</li>'; });
+    if(fatal.length) h+='<li>\u2717 '+fatal.length+' doc ไม่มี <code>meta.report_id</code> — ข้าม (ไม่มี key จะเก็บ)</li>';
+    grand.forEach(g=>{ h+='<li style="opacity:.75">\u26a1 <code>'+esc(g.id)+'</code> ver '+esc(g.ver)+
+        ' — ไม่ผ่านกฎปัจจุบัน '+g.n+' ข้อ แต่รับเข้า (grandfathered)</li>'; });
+    if(b.expected!=null && b.expected!==b.docs.length)
+      h+='<li>\u26a0 bundle ไม่ครบมาแต่ต้นทาง: expected '+b.expected+' แต่มี docs '+b.docs.length+'</li>';
+    if(Array.isArray(b.missing)&&b.missing.length)
+      h+='<li>\u26a0 ต้นทางระบุ missing '+b.missing.length+' docs</li>';
+    if(b.contract_ver&&b.contract_ver!==CONTRACT_VER)
+      h+='<li style="opacity:.7">note: bundle contract_ver '+esc(b.contract_ver)+' \u2260 '+CONTRACT_VER+'</li>';
+    h+='</ul>';
+    stripMsg(bad?"bad":"ok", h);
+
+    if(rejected.length){                                // ปุ่มดาวน์โหลดตัวที่ตกไปแก้
+      const box=document.createElement("div"); box.className="ask";
+      const btn=document.createElement("button"); btn.type="button"; btn.textContent="EXPORT REJECTED";
+      btn.addEventListener("click",()=>{
+        const st=new Date().toISOString().slice(0,16).replace(/[:T]/g,"").replace(/-/g,"");
+        downloadText("papyrus.rejected."+st+".json", JSON.stringify({
+          bundle:"papyrus.rejected", exported:new Date().toISOString(), contract_ver:CONTRACT_VER,
+          count:REJECTED.length,
+          errors:REJECTED.map(r=>({report_id:r.id, errors:r.errs})),
+          docs:REJECTED.map(r=>r.doc)
+        },null,2));
+      });
+      box.appendChild(btn); strip.appendChild(box);
+    }
+    await refreshList();
+  }
+
+  async function doImport(text){
+    let d; try{ d=JSON.parse(text); }
+    catch(e){ stripMsg("bad",'<span class="vh">✗ JSON parse error</span><ul><li>'+esc(e.message)+'</li></ul>'); return; }
+    if(d && d.bundle==="papyrus.archive"){ await importBundle(d); ta.value=""; return; }
+    showValidation(window.__validate(d));
+    if(!d.meta || !d.meta.report_id){
+      strip.innerHTML+='<div style="margin-top:6px">⚠ save ไม่ได้ — ขาด <code>meta.report_id</code> (ใช้เป็น key)</div>'; return;
+    }
+    if(await docExists(d.meta.report_id)){
+      const c=await askChoice('<span class="vh">\u26a0 <code>'+esc(d.meta.report_id)+'</code> มีอยู่แล้วในคลัง</span>',
+        [{k:"over",label:"OVERWRITE"},{k:"cancel",label:"CANCEL"}]);
+      if(c==="cancel"){ stripMsg("bad",'<span class="vh">\u21b7 ยกเลิก ไม่ทับของเดิม</span>'); return; }
+    }
+    let id;
+    try{ id=await saveDoc(d); }
+    catch(e){ strip.innerHTML+='<div style="margin-top:6px">✗ SAVE FAILED — '+esc(e.message)+' (ข้อมูลยังไม่เข้าคลัง)</div>'; return; }
+    ta.value=""; await refreshList();
+    openDoc(id);
+  }
+  document.getElementById("jl-render").addEventListener("click",()=>doImport(ta.value));
+  document.getElementById("jl-clear").addEventListener("click",()=>{ta.value="";strip.className="";strip.innerHTML="";});
+  document.getElementById("jl-sample").addEventListener("click",()=>{const s=document.getElementById("sample-data").textContent.trim();ta.value=s;doImport(s);});
+  document.getElementById("jl-file").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{ta.value=r.result;doImport(r.result);};r.readAsText(f);});
+  document.getElementById("jl-exportall").addEventListener("click",exportAll);
+  document.getElementById("jl-rebuild").addEventListener("click",async ()=>{
+    const n=await rebuildIndex(); stripMsg("ok",'<span class="vh">✓ REBUILD INDEX — '+n+' doc(s)</span>'); await refreshList();
+  });
+  const panel=document.getElementById("jload");
+  ["dragover","dragenter"].forEach(ev=>document.addEventListener(ev,e=>{e.preventDefault();panel.classList.add("drag");}));
+  document.addEventListener("dragleave",e=>{if(!e.relatedTarget)panel.classList.remove("drag");});
+  document.addEventListener("drop",e=>{e.preventDefault();panel.classList.remove("drag");
+    const f=e.dataTransfer.files[0];
+    if(f){const r=new FileReader();r.onload=()=>{ta.value=r.result;doImport(r.result);};r.readAsText(f);}
+    else{const t=e.dataTransfer.getData("text");if(t){ta.value=t;doImport(t);}}
+  });
+})();
+
+/* ── back + init ── */
+document.getElementById("back").addEventListener("click",()=>{ show("list"); refreshList(); });
+(async function(){
+  // ถ้ามี fb-boot.js โหลดอยู่ (portal inject ให้) รอ login เสร็จก่อนเปิดเผยข้อมูล
+  // กันเห็นแบนเนอร์ "in-memory only" กระพริบผิด ๆ ก่อนจะสลับเป็น Firestore จริงในเสี้ยววินาทีถัดมา
+  // มี timeout กันค้างถ้าเปิดไฟล์นี้แบบ standalone (ไม่มี fb-boot.js เลย หรือ auth ค้าง)
+  if(window.__fbReady && typeof window.__fbReady.then==="function"){
+    try{ const FB=await Promise.race([window.__fbReady, _napMs(8000)]);
+         if(FB && FB.assertVer){ try{ FB.assertVer("2026.07.27.C"); }catch(e){ console.warn("[papyrus]",e.message); } }
+    }catch(e){}
+  }
+  if(window.__storeMode==="memory") document.getElementById("store-banner").style.display="block";
+  await refreshList(); show("list");
+})();
+</script>
+
+<script>
+/* ── EXPORT WORD · Word-compatible HTML (.doc, opens/prints in MS Word) ── */
+(function(){
+  const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const num=(n,d=2)=>(typeof n==="number"?n.toFixed(d):"—");
+  const pct=n=>(typeof n==="number"?n+"%":"—");
+  const j=(arr,sep=" · ")=>Array.isArray(arr)?arr.filter(Boolean).join(sep):"";
+
+  function articleRows(arts){
+    return (arts||[]).map(a=>`
+      <tr>
+        <td class="s">${(p=>esc(p.d)+"<br>"+esc(p.t+" "+p.suf))(window.__tzParts(a.date,window.__tzMode||"th"))}<br><span class="tag">${esc(a.context_type||"")}</span></td>
+        <td>${esc(a.source||"")}<br><b>${esc(a.headline||"")}</b></td>
+        <td class="s">${esc(a.headline_sentiment||"")}</td>
+        <td class="s">${esc(a.body_sentiment||"")}</td>
+        <td class="s">${esc(a.alignment||"")}</td>
+        <td class="s c">${num(a.score)}</td>
+        <td class="s c">${pct(a.confidence)}</td>
+        <td class="phrase">${esc(a.supporting_phrase||"—")}</td>
+      </tr>`).join("");
+  }
+
+  function assetSection(a,i){
+    return `
+    <div class="sect">
+      <h3 class="asset">${esc((a.asset||"").toUpperCase())}</h3>
+      <table class="sumtbl">
+        <tr>
+          <td class="lbl">Timeframe</td><td class="v">${esc(a.timeframe||"—")}</td>
+          <td class="lbl">Sources</td><td class="v">${a.sources_analyzed??"—"}</td>
+          <td class="lbl">Mean</td><td class="v"><b>${num(a.mean_score)}</b></td>
+        </tr>
+        <tr>
+          <td class="lbl">Dominant</td><td class="v"><b>${esc(a.dominant_sentiment)}</b></td>
+          <td class="lbl">Emotion</td><td class="v">${esc(a.emotion_theme)}</td>
+          <td class="lbl">Confidence</td><td class="v">${pct(a.analyst_confidence)}</td>
+        </tr>
+      </table>
+
+      <h3>Articles</h3>
+      <table class="artbl">
+        <thead><tr>
+          <th>Date/Ctx</th><th>Source / Headline</th><th>Head</th><th>Body</th>
+          <th>Align</th><th>Score</th><th>Conf</th><th>Supporting Phrase</th>
+        </tr></thead>
+        <tbody>${articleRows(a.articles)}</tbody>
+      </table>
+
+      <table class="drv">
+        <tr><td class="drvh pos">Top Positive Drivers</td><td class="drvh neg">Top Negative Drivers</td></tr>
+        <tr>
+          <td>${(a.top_positive_drivers||[]).map(x=>'&bull; '+esc(x)).join('<br>')||'—'}</td>
+          <td>${(a.top_negative_drivers||[]).map(x=>'&bull; '+esc(x)).join('<br>')||'—'}</td>
+        </tr>
+      </table>
+
+      <p class="impl"><b>Implication:</b> ${esc(a.implication||"—")}</p>
+    </div>`;
+  }
+
+  function fxSection(fx){
+    const rows=(fx.currencies||[]).map(c=>`
+      <tr>
+        <td class="c"><b>${esc(c.ccy)}</b></td><td class="s">${esc(c.proxy||"")}</td>
+        <td class="s c">${c.inverted?"invert":"direct"}</td><td class="s c">${esc(c.bias)}</td>
+        <td>${esc(c.driver||"—")}</td>
+      </tr>`).join("");
+    return `
+    <div class="sect">
+      <h2>FX STRENGTH</h2>
+      <table class="artbl">
+        <thead><tr><th>Ccy</th><th>Proxy</th><th>Rule</th><th>Bias</th><th>Driver</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p><b>Strongest → Weakest:</b> ${j(fx.ranking_strong_to_weak," → ")}</p>
+    </div>`;
+  }
+
+  function crossSection(x){
+    return `
+      <h2>CROSS-ASSET</h2>
+      <p><b>Shared Macro Drivers:</b> ${esc(x.shared_macro_drivers||"—")}</p>
+      <p><b>Divergence Note:</b> ${esc(x.divergence_note||"—")}</p>
+      <p><b>Key Insight:</b> ${esc(x.key_insight||"—")}</p>`;
+  }
+
+  function riskSection(r){
+    const rows=(r.risk_factors||[]).map(f=>{
+      const ex=Object.entries(f.exposures||{}).map(([k,v])=>esc(k)+": "+(v==="watch"?"watch":(v>0?"+"+v:v))).join(" · ");
+      return `<tr><td>${esc(f.name)}</td><td class="s c">${esc(f.status)}</td><td class="s">${ex||"—"}</td></tr>`;
+    }).join("");
+    return `
+    <div class="sect">
+      <h2>RISK MATRIX</h2>
+      <p>${esc(r.narrative||"—")}</p>
+      <table class="sumtbl">
+        <tr>
+          <td class="lbl">Regime</td><td><b>${esc(r.regime)}</b></td>
+          <td class="lbl">Conviction</td><td><b>${esc(r.conviction)}</b></td>
+        </tr>
+      </table>
+      <h3>Risk Factors</h3>
+      <table class="artbl">
+        <thead><tr><th>Name</th><th>Status</th><th>Exposures</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p class="impl"><b>Regime-Flip Trigger:</b> ${esc(r.flip_trigger||"—")}</p>
+      <p><b>One-Line Risk Read:</b> ${esc(r.one_line||"—")}</p>
+    </div>`;
+  }
+
+  function buildWordHtml(d){
+    const M=d.meta||{}, ver=d.ver||"2026.07.00.past";
+    const mode=window.__tzMode||"th";
+    const gp=window.__tzParts(M.generated,mode);
+    const gen=gp.d+" "+gp.t+" "+gp.suf;
+    return `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+<meta charset="utf-8">
+<title>${esc(M.report_id||"JANUS Report")}</title>
+<!--[if gte mso 9]><xml>
+<w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument>
+</xml><![endif]-->
+<style>
+@page Section1{ size:21cm 29.7cm; margin:1.7cm 1.6cm; mso-header-margin:1cm; mso-footer-margin:1cm; }
+div.Section1{ page:Section1; }
+body{ font-family:'Leelawadee UI','Tahoma',sans-serif; font-size:10.5pt; color:#1a1a1a; line-height:1.35; }
+h1{ font-size:16.5pt; margin:0 0 2pt; color:#000; }
+h2{ font-size:13pt; margin:9pt 0 4pt; padding-bottom:2pt; border-bottom:1.5pt solid #b8860b; color:#000; page-break-after:avoid; }
+h3{ font-size:10.5pt; margin:6pt 0 2pt; color:#333; page-break-after:avoid; }
+h3.asset{ font-size:11.5pt; margin:8pt 0 3pt; color:#000; letter-spacing:.5pt; border-bottom:0.75pt solid #ddd; padding-bottom:1.5pt; }
+.meta{ font-size:8.5pt; color:#555; margin-bottom:3pt; line-height:1.3; }
+.hr{ border-bottom:2pt solid #b8860b; margin:4pt 0 8pt; }
+table{ border-collapse:collapse; width:100%; margin:2pt 0 6pt; }
+tr{ page-break-inside:avoid; }
+table.drv{ page-break-inside:avoid; }
+td,th{ border:0.75pt solid #888; padding:2.5pt 5pt; font-size:8.75pt; line-height:1.2; vertical-align:top; }
+th{ background:#f0efe9; font-weight:bold; padding:3pt 5pt; }
+td.s{ font-size:8.25pt; } td.c{ text-align:center; }
+.tag{ font-size:7pt; color:#888; }
+.phrase{ font-size:8.25pt; font-style:italic; }
+table.artbl th{ mso-repeat-header:yes; }
+table.drv td{ vertical-align:top; width:50%; padding:3pt 6pt; }
+.drvh{ font-weight:bold; background:#f7f6f2; }
+.drvh.pos{ color:#1a6b3a; } .drvh.neg{ color:#a33; }
+table.sumtbl{ page-break-inside:avoid; margin:2pt 0 6pt; }
+table.sumtbl{ table-layout:fixed; }
+table.sumtbl td{ padding:2pt 5pt; font-size:8.75pt; line-height:1.2; }
+table.sumtbl td.lbl{ font-weight:bold; background:#f7f6f2; color:#444; width:11%; }
+table.sumtbl td.v{ width:22.33%; }
+.impl{ background:#f7f6f2; padding:4pt 7pt; margin:4pt 0 2pt; border-left:3pt solid #b8860b; page-break-inside:avoid; font-size:9.5pt; }
+.sect{ margin-top:2pt; }
+.footer{ font-size:7.5pt; color:#777; margin-top:12pt; border-top:0.5pt solid #ccc; padding-top:3pt; }
+</style>
+</head>
+<body>
+<div class="Section1">
+  <h1>JANUS — MARKET SENTIMENT REPORT</h1>
+  <div class="meta">
+    Report ID: ${esc(M.report_id)} &nbsp;·&nbsp; Generated: ${esc(gen)}
+    &nbsp;·&nbsp; News Window: ${esc(M.news_window)} &nbsp;·&nbsp; Generator: ${esc(M.generator)}
+  </div>
+  <div class="hr"></div>
+
+  <h2>MARKET SUMMARY</h2>
+  <p>${(d.macro_backdrop||[]).map(x=>'&bull; '+esc(x)).join('<br>')||'—'}</p>
+
+  ${crossSection(d.cross_asset||{})}
+  ${riskSection(d.risk_summary||{})}
+  <h2>ASSET SENTIMENT</h2>
+  ${(d.asset_reports||[]).map(assetSection).join("")}
+  ${fxSection(d.fx_overview||{})}
+
+  <div class="footer">
+    schema ${esc(d.schema||"janus.report")} · ver ${esc(ver)} · exported ${esc(new Date().toISOString().slice(0,16).replace("T"," "))}Z · ${({th:"เวลาทั้งหมดในเอกสารแสดงเป็น GMT+7 (TH)",utc:"เวลาทั้งหมดในเอกสารแสดงเป็น UTC",ny:"เวลาทั้งหมดในเอกสารแสดงเป็น US Eastern (ET)"})[window.__tzMode||"th"]}
+  </div>
+</div>
+</body>
+</html>`;
+  }
+
+  function exportWord(){
+    const d=window.__currentDoc;
+    if(!d){ note("bad",'<span class="vh">✗ ไม่มีรายงานที่เปิดอยู่ — เปิด report ก่อน export</span>'); return; }
+    const html=buildWordHtml(d);
+    const blob=new Blob(['\ufeff', html], {type:"application/msword"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=(d.meta&&d.meta.report_id?d.meta.report_id:"janus_report")+".doc";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),500);
+  }
+  window.__exportWord=exportWord;
+
+  const btn=document.getElementById("jl-word");
+  if(btn) btn.addEventListener("click",exportWord);
+})();
+</script>
+
+</body>
+</html>
