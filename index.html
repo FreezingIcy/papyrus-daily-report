@@ -550,26 +550,27 @@ body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--mono)}
 /* ── TZ display module · store og, display th/og ── */
 (function(){
   window.__tzMode="th";   // th | utc | ny  (default per decision 2026-07-18)
-  const ZONES={th:{tz:"Asia/Bangkok",suf:"+7"},utc:{tz:"UTC",suf:"UTC"},ny:{tz:"America/New_York",suf:"ET"}};
+  const ZONES={th:{tz:"Asia/Bangkok",suf:"+7",label:"+7 TH"},utc:{tz:"UTC",suf:"UTC",label:"UTC"},ny:{tz:"America/New_York",suf:"ET",label:"ET NY"}};
   function parts(iso,mode){
-    const empty={d:"",t:"",suf:"",date:"",time:""};
+    const empty={d:"",t:"",suf:"",label:"",date:"",time:""};
     if(!iso) return empty;
     const ep=Date.parse(iso);
-    if(isNaN(ep)) return {d:String(iso).slice(0,10),t:String(iso).slice(11,16),suf:"",date:"",time:""};
+    if(isNaN(ep)) return {d:String(iso).slice(0,10),t:String(iso).slice(11,16),suf:"",label:"",date:"",time:""};
     const z=ZONES[mode]||ZONES.th;
     const fp=new Intl.DateTimeFormat("en-GB",{timeZone:z.tz,year:"numeric",month:"2-digit",
       day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}).formatToParts(new Date(ep));
     const g=t=>(fp.find(x=>x.type===t)||{}).value||"";
     const Y=g("year"),Mo=g("month"),D=g("day"),H=g("hour"),Mi=g("minute");
-    return { d:Y+"-"+Mo+"-"+D, t:H+":"+Mi, suf:z.suf, date:D+"/"+Mo+"/"+Y.slice(2), time:H+":"+Mi };
+    return { d:Y+"-"+Mo+"-"+D, t:H+":"+Mi, suf:z.suf, label:z.label, date:D+"/"+Mo+"/"+Y.slice(2), time:H+":"+Mi };
   }
   window.__tzParts=parts;
   window.__fmtDT=iso=>{const p=parts(iso,window.__tzMode);return (p.d+" "+p.t+" "+p.suf).trim();};
   window.__fmtD =iso=>parts(iso,window.__tzMode).d;
   window.__fmtShort=iso=>{const p=parts(iso,window.__tzMode);return (p.d.slice(5)+" "+p.t+" "+p.suf).trim();};
-  // default title core (ตอบ tz toggle) · card="dd/mm/yy hh:mm" · report="dd/mm/yy _ hh:mm"
-  window.__titleCore =iso=>{const p=parts(iso,window.__tzMode);return (p.date+" "+p.time).trim();};
-  window.__titleCoreU=iso=>{const p=parts(iso,window.__tzMode);return (p.date+" _ "+p.time).trim();};
+  // default title core (ตอบ tz toggle) · card="dd/mm/yy hh:mm (+7 TH)" · report="dd/mm/yy _ hh:mm (+7 TH)"
+  // ต่อ label ต่อท้ายเฉพาะตอนมีวันที่จริง (กัน "(...)" ลอยเดี่ยวตอน iso ว่าง/parse ไม่ได้)
+  window.__titleCore =iso=>{const p=parts(iso,window.__tzMode);const base=(p.date+" "+p.time).trim();return (base&&p.label)?base+" ("+p.label+")":base;};
+  window.__titleCoreU=iso=>{const p=parts(iso,window.__tzMode);const base=(p.date+" _ "+p.time).trim();return (base&&p.label)?base+" ("+p.label+")":base;};
 
   function setMode(m){
     if(!ZONES[m]) m="th";
@@ -1432,6 +1433,11 @@ document.getElementById("back").addEventListener("click",()=>{ show("list"); ref
   }
   if(window.__storeMode==="memory") document.getElementById("store-banner").style.display="block";
   await refreshList(); show("list");
+
+  // เน็ตหรือ IndexedDB ช้า → 'fb-ready' อาจยิงหลังบรรทัดบนนี้ทำงานไปแล้ว (STORE ยังเป็น memory ตอนนั้น)
+  // ไม่มีอะไรมา refresh ซ้ำเอง → list ค้างว่างจนกว่าจะกด REBUILD INDEX เอง (นี่คือ bug ที่รายงานมา 2026-07-31)
+  // แก้ด้วยการฟัง event จริงแทนพึ่ง await ครั้งเดียว — เกิดกี่รอบก็ refresh ใหม่ให้ ไม่ทำอะไรถ้า list ถูกอยู่แล้ว (1 read เฉยๆ)
+  window.addEventListener("fb-ready", () => { refreshList(); });
 })();
 </script>
 
