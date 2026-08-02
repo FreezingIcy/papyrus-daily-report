@@ -350,6 +350,10 @@ table.artt col.c-ph{width:23%}
 #jload button{font:600 11px ui-monospace,monospace;letter-spacing:.5px;padding:7px 14px;border-radius:6px;cursor:pointer;border:1px solid #2a3541;background:#1a232d;color:#c9d4df}
 #jload button.pri{background:#1f6f5c;border-color:#2a8a72;color:#eafff8}
 #jload button:hover{filter:brightness(1.15)}
+.jl-arch{margin-top:6px;padding-top:8px;border-top:1px dashed var(--line)}
+.jl-arch .jl-lb{font-size:9px;letter-spacing:1.5px;color:var(--txt-3);margin-right:2px}
+#jl-range{background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:6px;
+  padding:5px 8px;font-family:inherit;font-size:11px}
 #jload input[type=file]{color:#8a97a4;font-size:11px}
 #jload.drag{border-color:#7fd4c1;box-shadow:0 0 0 2px rgba(127,212,193,.2)}
 #vstrip{margin-top:10px;padding:9px 12px;border-radius:6px;font-size:11.5px;display:none}
@@ -366,6 +370,13 @@ body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--mono)}
 .pap-hd{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--amber-dim);padding-bottom:10px;margin-bottom:14px;gap:12px}
 .pap-hd .ttl{font-size:16px;letter-spacing:2px;color:var(--amber);font-weight:700}
 .pap-hd .rt{display:flex;align-items:center;gap:12px}
+/* กลับ portal — repo คนละตัวกับ Papyrus (Athenaeum-Archive) จึงเป็น <a> จริง ไม่ใช่ route ภายใน
+   ถ้าเปลี่ยนชื่อ repo portal ต้องแก้ href ตรงนี้ด้วย */
+.backport{display:inline-flex;align-items:center;gap:5px;text-decoration:none;
+  background:transparent;border:1px dashed var(--line);border-radius:7px;
+  padding:5px 10px;color:var(--txt-3);font-size:11px;letter-spacing:.5px;white-space:nowrap}
+.backport:hover{color:var(--amber);border-color:var(--amber-dim)}
+.backport svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .pap-hd .cnt{font-size:11px;color:var(--txt-3);letter-spacing:1px}
 #store-banner{display:none;margin:0 0 12px;padding:8px 12px;border-radius:6px;background:var(--panel);border:1px solid var(--amber);color:var(--amber);font-size:11.5px}
 #jload{padding:12px 14px;font:12px/1.5 var(--mono);background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:8px;margin-bottom:14px}
@@ -456,6 +467,7 @@ body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--mono)}
   <div class="pap-hd">
     <span class="ttl">PAPYRUS</span>
     <div class="rt">
+      <a class="backport" href="https://freezingicy.github.io/Athenaeum-Archive/" title="กลับไป Athenaeum"><svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>ATHENAEUM</a>
       <span id="appver" title="เวอร์ชันไฟล์ papyrus.html นี้"></span>
       <span class="cnt" id="doccount">0 DOCS</span>
       <span class="tzlabel">TZ</span><select class="tzsel" aria-label="Timezone"><option value="th">TH</option><option value="utc">UTC</option><option value="ny">NY</option></select>
@@ -470,9 +482,21 @@ body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--mono)}
       <button class="pri" id="jl-render">IMPORT → SAVE</button>
       <button id="jl-sample">LOAD SAMPLE</button>
       <button id="jl-clear">CLEAR</button>
-      <button id="jl-exportall">EXPORT ALL</button>
-      <button id="jl-rebuild" title="กู้ index จาก docs">REBUILD INDEX</button>
       <input type="file" id="jl-file" accept=".json,application/json">
+    </div>
+    <!-- แยกจากกลุ่ม import โดยเจตนา — คนละประเภทงาน (import ทำบ่อย · archive tool นาน ๆ ครั้ง)
+         REBUILD INDEX เป็นปุ่มกู้ภัย ไม่ควรอยู่ปนจนกดพลาดง่าย -->
+    <div class="jl-row jl-arch">
+      <span class="jl-lb">ARCHIVE</span>
+      <select id="jl-range" aria-label="ช่วงเวลาที่จะ export">
+        <option value="all">ทั้งหมด</option>
+        <option value="ytd">ปีนี้</option>
+        <option value="q">ไตรมาสนี้</option>
+        <option value="m">เดือนนี้</option>
+        <option value="pm">เดือนที่แล้ว</option>
+      </select>
+      <button id="jl-exportall">EXPORT</button>
+      <button id="jl-rebuild" title="สแกน docs ทั้งหมดแล้วสร้าง index ใหม่ — ใช้เฉพาะตอน index เพี้ยน ปกติไม่ต้องกด">REBUILD INDEX</button>
     </div>
     <div id="vstrip"></div>
   </div>
@@ -922,6 +946,20 @@ document.getElementById("foot").innerHTML=
     const rs=d.risk_summary||{};
     if(!REG.includes(rs.regime)) er("risk_summary.regime","enum");
     if(!CONV.includes(rs.conviction)) er("risk_summary.conviction","enum");
+    // R12 haven_bid: int 0..2 และต้องสอดคล้องกับ regime ตามตาราง PART E
+    if(!isInt(rs.haven_bid)||rs.haven_bid<0||rs.haven_bid>2) er("risk_summary.haven_bid","int 0..2");
+    else if(REG.includes(rs.regime)){
+      const eq=(ar[0]||{}).dominant_sentiment;           // meta.assets[0] = equities
+      const hb=rs.haven_bid;
+      let want=null;
+      if(eq==="Positive"&&hb===0)      want="Risk-On";
+      else if(eq==="Negative"&&hb===2) want="Risk-Off";
+      else if(eq==="Negative")         want="Defensive";
+      else if(eq==="Neutral"&&hb===2)  want="Defensive";
+      else if(SENT.includes(eq))       want="Mixed";
+      if(want&&rs.regime!==want)
+        er("risk_summary.regime",'"'+rs.regime+'" but equities='+eq+" + haven_bid="+hb+" implies "+want);
+    }
     (rs.risk_factors||[]).forEach((r,i)=>{ const P="risk_summary.risk_factors["+i+"]";
       if(!STAT.includes(r.status)) er(P+".status","enum");
       const ex=r.exposures||{};
@@ -938,7 +976,7 @@ document.getElementById("foot").innerHTML=
       "fx_overview":["currencies","ranking_strong_to_weak"],
       "currencies[]":["ccy","proxy","inverted","bias","driver"],
       "cross_asset":["shared_macro_drivers","divergence_note","key_insight"],
-      "risk_summary":["narrative","regime","conviction","risk_factors","flip_trigger","one_line"],
+      "risk_summary":["narrative","regime","conviction","haven_bid","risk_factors","flip_trigger","one_line"],
       "risk_factors[]":["name","status","exposures"]
     };
     const extra=(obj,allow,path)=>{ if(!obj||typeof obj!=="object") return;
@@ -958,9 +996,9 @@ document.getElementById("foot").innerHTML=
 })();
 </script>
 <script>
-const NS="papyrus", KDOC=id=>NS+":doc:"+id, KIX=NS+":index", KUM=NS+":usermeta", KCARD=NS+":card", DOCPFX=NS+":doc:";
-const APP_VER="2026.07.31.A";   // เวอร์ชันไฟล์นี้ — bump ทุกครั้งที่แก้ (major เท่านั้น ตามธรรมเนียม)
-const CONTRACT_VER="2026.07.22.A", PAST="2026.07.00.past";   // ⚠️ คนละตัวกับ APP_VER — นี่คือ schema version ของ janus.report
+const NS="papyrus", KDOC=id=>NS+":doc:"+id, KIX=NS+":index", KUM=NS+":usermeta", KCARD=NS+":card", KMANIFEST=NS+":manifest", DOCPFX=NS+":doc:";
+const APP_VER="2026.07.31.B";   // เวอร์ชันไฟล์นี้ — bump ทุกครั้งที่แก้ (major เท่านั้น ตามธรรมเนียม)
+const CONTRACT_VER="2026.07.31.A", PAST="2026.07.00.past";   // ⚠️ คนละตัวกับ APP_VER — นี่คือ schema version ของ janus.report
 window.PAST=PAST;                                 // ให้ block อื่น (renderReport) อ้างถึงค่าเดียวกันได้จริง
 
 /* ── canonical stringify (key order คงที่) — ใช้เทียบ identical ข้าม backend ──
@@ -986,6 +1024,7 @@ const STORE=(function(){
     const path=k=> k===KIX   ? {c:"meta",  d:"index"}
                  : k===KUM   ? {c:"meta",  d:"usermeta"}
                  : k===KCARD ? {c:"meta",  d:"card"}
+                 : k===KMANIFEST ? {c:"meta", d:"manifest"}
                  : {c:"reports",d:k.slice(DOCPFX.length)};
     return { mode:"firestore",
       async get(k){ const p=path(k); const snap=await FB.getDoc(FB.doc(FB.db,...base,p.c,p.d));
@@ -1094,15 +1133,24 @@ async function setReportNote(id, val){
   await touchUserMeta(id, {title: ix[k].title!=null?ix[k].title:null, note});
 }
 async function getEntry(id){ const ix=await getIndex(); return ix.find(x=>x.report_id===id)||null; }
+/* uid = identity ถาวร (Athenaeum contract §7)
+   Papyrus ใช้สูตร deterministic ล้วน ไม่สุ่ม เพราะ report_id มาจาก JANUS output
+   ที่ผู้ใช้แก้ไม่ได้ → ทุกเครื่องคำนวณได้ค่าเดียวกัน · backfill ข้อมูลเก่าจึงปลอดภัย
+   (ต่างจาก CTD ที่ id คำนวณจาก entry date ซึ่งแก้ได้ → ต้องแยก uid ออกจริง ๆ) */
+const uidOf = id => NS + ".v1." + id;
+
 function indexEntry(d, prev){
   // title/note = user-editable metadata (archive layer) · เก็บของเดิมไว้เมื่อ re-index
-  return { report_id:d.meta.report_id, generated:(d.meta.generated||""), assets:(d.meta.assets||[]),
+  return { uid:uidOf(d.meta.report_id), report_id:d.meta.report_id, generated:(d.meta.generated||""), assets:(d.meta.assets||[]),
            ver:d.ver, regime:((d.risk_summary||{}).regime||""), n_assets:((d.asset_reports||[]).length),
            title:(prev&&prev.title!=null)?prev.title:null, note:(prev&&prev.note!=null)?prev.note:"" };
 }
 function stamp(d){
   if(d.schema!=="janus.report") d.schema="janus.report";
   if(!d.ver) d.ver=PAST;
+  // uid ติดไปกับตัว report ด้วย ไม่ใช่แค่ใน index — export/backup จะได้มี identity ครบ
+  // คำนวณใหม่ทุกครั้งโดยตั้งใจ (deterministic) ถ้าไฟล์เก่าไม่มีก็ได้มาเอง ไม่ต้อง migrate
+  if(d.meta && d.meta.report_id) d.uid = uidOf(d.meta.report_id);
   return d;
 }
 async function docExists(id){ return (await STORE.get(KDOC(id)))!==null; }
@@ -1112,14 +1160,34 @@ async function saveDoc(d){                       // throws on storage failure
   const id=d.meta.report_id;
   await setRetry(KDOC(id), d);
   const ix=await getIndex();
-  const k=ix.findIndex(x=>x.report_id===id);
-  const um=(await getUserMeta())[id];              // usermeta ชนะ index เดิม ถ้ามี (ทนกว่า)
-  const prev = um ? {title: um.title!=null?um.title:null, note: um.note||""}
-                  : (k>=0 ? ix[k] : undefined);
-  const entry=indexEntry(d, prev);
-  if(k>=0) ix[k]=entry; else ix.push(entry);
+  const um=await getUserMeta();
+  mergeEntry(ix, d, um);
   await setIndex(ix);
   return id;
+}
+
+/* ── bulk-friendly (P-17) ────────────────────────────────────────
+   saveDoc เดิมอ่าน+เขียน index ทุกครั้ง → import N รายการ = 3N writes
+   และ meta/index ถูกเขียนทับ N ครั้ง ซึ่งชน soft limit ของ Firestore
+   (เขียน document เดิมซ้ำได้ ~1 ครั้ง/วินาที) → 1,000 รายการ ≈ 17 นาที
+   แยกเป็น: เขียน doc อย่างเดียว → รวม entry ใน memory → setIndex ครั้งเดียวตอนจบ
+   ผลลัพธ์ 1,000 รายการ: 3,000 writes → 1,002 writes · นาที → วินาที */
+async function saveDocOnly(d){
+  stamp(d);
+  await setRetry(KDOC(d.meta.report_id), d);
+  return d.meta.report_id;
+}
+
+// รวม entry ของ d เข้า ix (แก้ array ในที่) — usermeta ชนะ index เดิมถ้ามี (ทนกว่า)
+function mergeEntry(ix, d, um){
+  const id=d.meta.report_id;
+  const k=ix.findIndex(x=>x.report_id===id);
+  const umv=(um||{})[id];
+  const prev = umv ? {title: umv.title!=null?umv.title:null, note: umv.note||""}
+                   : (k>=0 ? ix[k] : undefined);
+  const entry=indexEntry(d, prev);
+  if(k>=0) ix[k]=entry; else ix.push(entry);
+  return entry;
 }
 async function getDoc(id){ try{ return await STORE.get(KDOC(id)); }catch(e){ return null; } }
 async function delDoc(id){ try{ await STORE.del(KDOC(id)); }catch(e){} const ix=(await getIndex()).filter(x=>x.report_id!==id); await setIndex(ix); }
@@ -1153,9 +1221,43 @@ async function exportDoc(id){
   downloadText(id+".json", JSON.stringify(d,null,2));
 }
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+/* ── date-range export (P-12) ────────────────────────────────────
+   ระบบเดียว = ช่วงวันที่ {from,to} · preset เป็นแค่ปุ่มที่แปลงเป็นช่วง
+   "ทั้งหมด" = ไม่ใส่ขอบเขต (ไม่ใช่ผลรวมของทุกเดือนมารวมกัน)
+   กรองจาก index (field generated) ไม่ต้องอ่าน doc ทุกตัวมาก่อน */
+function rangeOf(preset, now){
+  const d=now||new Date();
+  const Y=d.getFullYear(), M=d.getMonth();
+  const iso=x=>x.toISOString();
+  switch(preset){
+    case "ytd": return { from:iso(new Date(Date.UTC(Y,0,1))), to:null, label:"ปี "+Y };
+    case "q": { const q=Math.floor(M/3);
+      return { from:iso(new Date(Date.UTC(Y,q*3,1))), to:iso(new Date(Date.UTC(Y,q*3+3,1))),
+               label:"Q"+(q+1)+" "+Y }; }
+    case "m": return { from:iso(new Date(Date.UTC(Y,M,1))), to:iso(new Date(Date.UTC(Y,M+1,1))),
+                       label:String(Y)+"-"+String(M+1).padStart(2,"0") };
+    case "pm": return { from:iso(new Date(Date.UTC(Y,M-1,1))), to:iso(new Date(Date.UTC(Y,M,1))),
+                        label:"เดือนที่แล้ว" };
+    default: return { from:null, to:null, label:"ทั้งหมด" };
+  }
+}
+function inRange(e, r){
+  if(!r.from && !r.to) return true;
+  const t=Date.parse(e.generated||"");
+  if(isNaN(t)) return true;                       // ไม่มีวันที่/parse ไม่ได้ → เก็บไว้ ดีกว่าทิ้งเงียบ ๆ
+  if(r.from && t < Date.parse(r.from)) return false;
+  if(r.to   && t >= Date.parse(r.to))  return false;
+  return true;
+}
+
 async function exportAll(){
-  const ix=await getIndex(); if(!ix.length){ note("bad",'<span class="vh">\u2717 คลังว่าง — ไม่มีอะไร export</span>'); return; }
-  note("ok",'<span class="vh">\u2026 EXPORT ALL — กำลังอ่าน '+ix.length+' docs</span>');
+  const sel=document.getElementById("jl-range");
+  const r=rangeOf(sel?sel.value:"all");
+  const all=await getIndex();
+  if(!all.length){ note("bad",'<span class="vh">\u2717 คลังว่าง — ไม่มีอะไร export</span>'); return; }
+  const ix=all.filter(e=>inRange(e,r));
+  if(!ix.length){ note("bad",'<span class="vh">\u2717 ไม่มีรายงานในช่วง '+esc(r.label)+' (คลังมี '+all.length+' รายการ)</span>'); return; }
+  note("ok",'<span class="vh">\u2026 EXPORT '+esc(r.label)+' — กำลังอ่าน '+ix.length+' docs</span>');
   const docs=[], missing=[];
   for(const e of ix){
     let d=null;
@@ -1167,18 +1269,22 @@ async function exportAll(){
   }
   const um=await getUserMeta();
   const bundle={ bundle:"papyrus.archive", exported:new Date().toISOString(),
-                 contract_ver:CONTRACT_VER, expected:ix.length, count:docs.length, docs, usermeta:um };
+                 contract_ver:CONTRACT_VER, app_ver:APP_VER,
+                 range:{ preset:(sel?sel.value:"all"), from:r.from, to:r.to, label:r.label },
+                 expected:ix.length, count:docs.length, docs, usermeta:um };
   if(missing.length) bundle.missing=missing;         // ไฟล์บอกตัวเองได้ว่าขาดอะไร
   const stampStr=new Date().toISOString().slice(0,16).replace(/[:T]/g,"").replace(/-/g,"");
-  downloadText("papyrus.archive."+stampStr+".json", JSON.stringify(bundle));   // minified
+  const tag=(sel&&sel.value!=="all")?"."+sel.value:"";
+  downloadText("papyrus.archive"+tag+"."+stampStr+".json", JSON.stringify(bundle));   // minified
   if(missing.length){
-    note("bad",'<span class="vh">\u26a0 EXPORT ALL — ไม่ครบ '+docs.length+'/'+ix.length+'</span><ul>'+
+    note("bad",'<span class="vh">\u26a0 EXPORT '+esc(r.label)+' — ไม่ครบ '+docs.length+'/'+ix.length+'</span><ul>'+
       '<li>อ่านไม่ได้ '+missing.length+' docs (retry 3 ครั้งแล้ว) — ไฟล์บันทึกไว้ใน <code>missing[]</code></li>'+
       missing.slice(0,5).map(x=>'<li><code>'+esc(x)+'</code></li>').join("")+
       (missing.length>5?'<li>\u2026 อีก '+(missing.length-5)+'</li>':'')+
-      '<li><b>ลอง EXPORT ALL ซ้ำอีกครั้งเพื่อให้ได้ครบ</b></li></ul>');
+      '<li><b>ลอง EXPORT ซ้ำอีกครั้งเพื่อให้ได้ครบ</b></li></ul>');
   } else {
-    note("ok",'<span class="vh">\u2713 EXPORT ALL — ครบ '+docs.length+'/'+ix.length+' docs</span>');
+    note("ok",'<span class="vh">\u2713 EXPORT '+esc(r.label)+' — ครบ '+docs.length+'/'+ix.length+' docs'+
+      (ix.length<all.length?' <span style="opacity:.7">(กรองจากทั้งหมด '+all.length+')</span>':'')+'</span>');
   }
 }
 
@@ -1336,13 +1442,32 @@ async function openDoc(id){
       if(policy==="cancel"){ stripMsg("bad",'<span class="vh">\u21b7 ยกเลิก — ไม่มีอะไรเข้าคลัง</span>'); return; }
     }
 
-    /* ── เขียนเข้าคลัง ── */
+    /* ── เขียนเข้าคลัง (P-17: index ครั้งเดียวตอนจบ ไม่ใช่ทุกรอบ) ── */
     let added=0,replaced=0,failed=0; const failIds=[];
     const writeList = policy==="skip" ? fresh : fresh.concat(conflict);
-    for(const d of writeList){
-      const isNew = fresh.indexOf(d)>=0;
-      try{ await saveDoc(d); isNew?added++:replaced++; }
-      catch(e){ failed++; failIds.push(d.meta.report_id); console.error("bundle save",d.meta.report_id,e); }
+    if(writeList.length){
+      const freshSet=new Set(fresh);
+      const ix=await getIndex();          // อ่านครั้งเดียว (เดิมอ่านทุกรอบ)
+      const um=await getUserMeta();       // อ่านครั้งเดียว (เดิมอ่านทุกรอบ)
+      const okDocs=[];
+      // เขียนขนานทีละชุด — doc คนละตัวไม่ชนกัน (ต่างจาก index ที่เป็น doc เดียว)
+      // 20 ต่อชุดเพื่อไม่ให้เปิด connection พร้อมกันมากเกินจนโดน throttle
+      const CHUNK=20;
+      for(let i=0;i<writeList.length;i+=CHUNK){
+        const part=writeList.slice(i,i+CHUNK);
+        const res=await Promise.all(part.map(async d=>{
+          try{ await saveDocOnly(d); return {d,ok:true}; }
+          catch(e){ console.error("bundle save",d.meta.report_id,e); return {d,ok:false}; }
+        }));
+        res.forEach(r=>{
+          if(r.ok){ okDocs.push(r.d); freshSet.has(r.d)?added++:replaced++; }
+          else { failed++; failIds.push(r.d.meta.report_id); }
+        });
+        if(writeList.length>CHUNK)
+          stripMsg("", '<span class="vh">\u2026 เขียนแล้ว '+Math.min(i+CHUNK,writeList.length)+'/'+writeList.length+'</span>');
+      }
+      okDocs.forEach(d=>mergeEntry(ix,d,um));
+      if(okDocs.length) await setIndex(ix);   // ← เขียน index + card ครั้งเดียว
     }
     const skipped = policy==="skip" ? conflict.length : 0;
 
@@ -1443,8 +1568,23 @@ document.getElementById("back").addEventListener("click",()=>{ show("list"); ref
   // เน็ตหรือ IndexedDB ช้า → 'fb-ready' อาจยิงหลังบรรทัดบนนี้ทำงานไปแล้ว (STORE ยังเป็น memory ตอนนั้น)
   // ไม่มีอะไรมา refresh ซ้ำเอง → list ค้างว่างจนกว่าจะกด REBUILD INDEX เอง (นี่คือ bug ที่รายงานมา 2026-07-31)
   // แก้ด้วยการฟัง event จริงแทนพึ่ง await ครั้งเดียว — เกิดกี่รอบก็ refresh ใหม่ให้ ไม่ทำอะไรถ้า list ถูกอยู่แล้ว (1 read เฉยๆ)
-  window.addEventListener("fb-ready", () => { refreshList(); });
+  window.addEventListener("fb-ready", () => { refreshList(); writeManifest(); });
+  if(window.__PAPYRUS_FB && window.__PAPYRUS_FB.user) writeManifest();   // login ค้างอยู่แล้วตั้งแต่เปิดหน้า
 })();
+
+// ประกาศโครงสร้างให้ portal ดูดข้อมูล backup ได้โดยไม่ต้องรู้ schema (Athenaeum contract §6)
+// เขียนครั้งเดียวตอน login — ไม่ผูกกับข้อมูล ล้มเหลวไม่กระทบอะไร
+async function writeManifest(){
+  try{
+    await STORE.set(KMANIFEST, {
+      manifest_ver:"1", plugin:"papyrus", app_ver:APP_VER,
+      contract_ver:"3", sync:"direct",
+      docs:["meta/index","meta/usermeta"],
+      // generated = ISO 8601 อยู่แล้วในทุก report → ใช้เป็น dateField ตรง ๆ ไม่สร้าง field ซ้ำให้ต้อง sync
+      collections:[{ name:"reports", uidField:"uid", dateField:"meta.generated" }]
+    });
+  }catch(e){ console.warn("[papyrus] write manifest failed (non-fatal)", e); }
+}
 </script>
 
 <script>
