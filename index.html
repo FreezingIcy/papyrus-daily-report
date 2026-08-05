@@ -277,7 +277,9 @@ table.artt td.meta .cx{margin-top:5px;font-size:9.5px;letter-spacing:.5px;color:
 /* col 2 — HEADLINE + SOURCE */
 table.artt td.art .hl{color:var(--txt);font-size:11.5px;line-height:1.5}
 table.artt td.art .so{margin-top:5px;font-size:9.5px;color:var(--txt-3);letter-spacing:.5px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;text-decoration:none;cursor:pointer}
+table.artt td.art .so:hover{color:var(--cyan);text-decoration:underline}
+table.artt td.art .so:focus-visible{outline:2px solid var(--cyan);outline-offset:1px}
 
 /* signal cells */
 table.artt td.sent{font-size:10.5px;letter-spacing:.5px}
@@ -796,7 +798,7 @@ document.getElementById("assets").innerHTML=DATA.asset_reports.map(a=>{
       </td>
       <td class="art">
         <div class="hl">${esc(ar.headline)}</div>
-        <div class="so">${esc(ar.source)}</div>
+        <a class="so" href="${esc(ar.url)}" target="_blank" rel="noopener noreferrer" title="เปิดข่าวต้นฉบับ">${esc(ar.source)}</a>
       </td>
       <td class="sent pin ${esc(ar.headline_sentiment)}">${ab(ar.headline_sentiment)}</td>
       <td class="sent pin ${esc(ar.body_sentiment)}">${ab(ar.body_sentiment)}</td>
@@ -997,7 +999,7 @@ document.getElementById("foot").innerHTML=
 </script>
 <script>
 const NS="papyrus", KDOC=id=>NS+":doc:"+id, KIX=NS+":index", KUM=NS+":usermeta", KCARD=NS+":card", KMANIFEST=NS+":manifest", DOCPFX=NS+":doc:";
-const APP_VER="2026.07.31.B";   // เวอร์ชันไฟล์นี้ — bump ทุกครั้งที่แก้ (major เท่านั้น ตามธรรมเนียม)
+const APP_VER="2026.08.04.A";   // เวอร์ชันไฟล์นี้ — bump ทุกครั้งที่แก้ (major เท่านั้น ตามธรรมเนียม)
 const CONTRACT_VER="2026.07.31.A", PAST="2026.07.00.past";   // ⚠️ คนละตัวกับ APP_VER — นี่คือ schema version ของ janus.report
 window.PAST=PAST;                                 // ให้ block อื่น (renderReport) อ้างถึงค่าเดียวกันได้จริง
 
